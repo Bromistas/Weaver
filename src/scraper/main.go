@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/gocolly/colly/v2"
+	"encoding/json"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"strings"
+	"scraper/common"
+	"scraper/handlers"
 	"time"
 )
 
@@ -17,28 +17,7 @@ func failOnError(err error, msg string) {
 }
 
 func scrap(url string) {
-	c := colly.NewCollector()
 
-	c.OnHTML(".product-title", func(e *colly.HTMLElement) {
-		fmt.Println("Name: ", e.Text)
-	})
-
-	c.OnHTML(".product-bullets", func(e *colly.HTMLElement) {
-		fmt.Println("Description: ", e.Text)
-	})
-
-	c.OnHTML(".product-pane .product-price .price .price-current strong", func(e *colly.HTMLElement) {
-		fmt.Println("Price: ", e.Text)
-	})
-
-	c.OnHTML(".product-wrap .product-reviews .product-rating i", func(e *colly.HTMLElement) {
-		fmt.Println("Rating: ", strings.TrimSpace(e.Attr("title")))
-	})
-
-	err := c.Visit(url)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func main() {
@@ -60,27 +39,36 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	urlsToScrap := []string{
-		"https://www.newegg.com/abyss-blue-lenovo-ideapad-slim-5i-82xf002sus-home-personal/p/N82E16834840212",
-		"https://www.newegg.com/indie-black-asus-f1605va-ds74-home-personal/p/N82E16834236434?Item=9SIA7ABK6P6769",
-		"https://www.newegg.com/natural-silver-natural-silver-with-a-vertical-brushed-pattern-hp-15-dy2088ca-mainstream/p/N82E16834272966?Item=9SIA9UWK084845",
+	//urlsToScrap := []string{
+	//	"https://www.newegg.com/abyss-blue-lenovo-ideapad-slim-5i-82xf002sus-home-personal/p/N82E16834840212",
+	//	"https://www.newegg.com/indie-black-asus-f1605va-ds74-home-personal/p/N82E16834236434?Item=9SIA7ABK6P6769",
+	//}
+
+	urlsToScrap := []common.URLMessage{
+		{URL: "https://www.newegg.com/abyss-blue-lenovo-ideapad-slim-5i-82xf002sus-home-personal/p/N82E16834840212", URLType: common.NeweggProduct},
+		{URL: "https://www.newegg.com/indie-black-asus-f1605va-ds74-home-personal/p/N82E16834236434?Item=9SIA7ABK6P6769", URLType: common.NeweggProduct},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	for _, url := range urlsToScrap {
+	for _, urlMessage := range urlsToScrap {
+		body, err := json.Marshal(urlMessage)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		err = ch.PublishWithContext(ctx,
 			"",     // exchange
 			q.Name, // routing key
 			false,  // mandatory
 			false,  // immediate
 			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(url),
+				ContentType: "application/json",
+				Body:        body,
 			})
 		failOnError(err, "Failed to publish a message")
-		log.Printf(" [x] Sent %s\n", url)
+		log.Printf(" [x] Sent %s\n", urlMessage.URL)
 	}
 
 	msgs, err := ch.Consume(
@@ -98,8 +86,20 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			url := string(d.Body)
-			scrap(url)
+			var urlMessage common.URLMessage
+			err := json.Unmarshal(d.Body, &urlMessage)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			switch urlMessage.URLType {
+			case common.AmazonProduct:
+				handlers.AmazonProductHandler(urlMessage.URL)
+			case common.NeweggProduct:
+				handlers.NeweggProductHandler(urlMessage.URL)
+			default:
+				log.Printf("Unknown URL type: %v", urlMessage.URLType)
+			}
 		}
 	}()
 
