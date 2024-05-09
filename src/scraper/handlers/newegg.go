@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gocolly/colly/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
@@ -17,29 +16,52 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func NeweggProductHandler(url string) {
+func NeweggProductHandler(url string, ch *amqp.Channel, exch string) {
 	c := colly.NewCollector()
+	product := common.Product{}
 
 	c.OnHTML(".product-title", func(e *colly.HTMLElement) {
-		fmt.Println("Name: ", e.Text)
+		product.Name = e.Text
 	})
 
 	c.OnHTML(".product-bullets", func(e *colly.HTMLElement) {
-		fmt.Println("Description: ", e.Text)
+		product.Description = e.Text
 	})
 
 	c.OnHTML(".product-pane .product-price .price .price-current strong", func(e *colly.HTMLElement) {
-		fmt.Println("Price: ", e.Text)
+		cleanedText := strings.Replace(e.Text, ",", "", -1)
+		price, err := strconv.ParseFloat(cleanedText, 64)
+		if err != nil {
+			log.Printf("Failed to parse price: %v", err)
+			return
+		}
+		product.Price = price
 	})
 
 	c.OnHTML(".product-wrap .product-reviews .product-rating i", func(e *colly.HTMLElement) {
-		fmt.Println("Rating: ", strings.TrimSpace(e.Attr("title")))
+		product.Rating = strings.TrimSpace(e.Attr("title"))
 	})
 
 	err := c.Visit(url)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	body, err := json.Marshal(product)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ch.Publish(
+		exch,  // exchange
+		"",    // routing key
+		false, // mandatory
+		false, // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		})
+	failOnError(err, "Failed to publish a message")
 }
 
 func NeweggRootHandler(searchURL string, ch *amqp.Channel, q amqp.Queue) {
@@ -51,11 +73,14 @@ func NeweggRootHandler(searchURL string, ch *amqp.Channel, q amqp.Queue) {
 		productURL := e.ChildAttr("a.item-title", "href")
 		reviewCount := e.ChildText(".item-rating-num")
 
+		log.Printf("Scanning {%s}")
+
 		// Check if the product has more than 10 reviews
 		str := strings.Trim(reviewCount, "()")
 		reviews, err := strconv.Atoi(str)
 
 		if err != nil || reviews <= 10 {
+			log.Printf("Rejected")
 			return
 		}
 

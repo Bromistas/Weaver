@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/gofiber/fiber/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"net/url"
@@ -24,6 +25,34 @@ func generateSearchURL(query string) string {
 	return "https://www.newegg.com/p/pl?d=" + encodedQuery
 }
 
+func newQueryMessageSend(query string, ch *amqp.Channel, q amqp.Queue) {
+	baseSearchURL := generateSearchURL(query)
+	baseUrlMessage := common.URLMessage{
+		URL:     baseSearchURL,
+		URLType: common.NeweggRoot,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	body, err := json.Marshal(baseUrlMessage)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ch.PublishWithContext(ctx,
+		"",     // exchange
+		q.Name, // routing key
+		false,  // mandatory
+		false,  // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		})
+	failOnError(err, "Failed to publish a message")
+	log.Printf(" [x] Sent %s\n", baseUrlMessage.URL)
+}
+
 func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -43,38 +72,13 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	query := "gaming"
-	baseSearchURL := generateSearchURL(query)
-	baseUrlMessage := common.URLMessage{
-		URL:     baseSearchURL,
-		URLType: common.NeweggRoot,
-	}
+	app := fiber.New()
 
-	urlsToScrap := []common.URLMessage{
-		baseUrlMessage,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	for _, urlMessage := range urlsToScrap {
-		body, err := json.Marshal(urlMessage)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = ch.PublishWithContext(ctx,
-			"",     // exchange
-			q.Name, // routing key
-			false,  // mandatory
-			false,  // immediate
-			amqp.Publishing{
-				ContentType: "application/json",
-				Body:        body,
-			})
-		failOnError(err, "Failed to publish a message")
-		log.Printf(" [x] Sent %s\n", urlMessage.URL)
-	}
+	app.Get("/query/:param", func(c *fiber.Ctx) error {
+		query := c.Params("param")
+		newQueryMessageSend(query, ch, q)
+		return c.SendString("Received param: " + query + ". Processing request")
+	})
 
 	msgs, err := ch.Consume(
 		q.Name, // queue
@@ -86,6 +90,8 @@ func main() {
 		nil,    // args
 	)
 	failOnError(err, "Failed to register a consumer")
+
+	exch := "products"
 
 	var forever chan struct{}
 
@@ -101,13 +107,17 @@ func main() {
 			case common.AmazonProduct:
 				handlers.AmazonProductHandler(urlMessage.URL)
 			case common.NeweggProduct:
-				handlers.NeweggProductHandler(urlMessage.URL)
+				handlers.NeweggProductHandler(urlMessage.URL, ch, exch)
 			case common.NeweggRoot:
 				handlers.NeweggRootHandler(urlMessage.URL, ch, q)
 			default:
 				log.Printf("Unknown URL type: %v", urlMessage.URLType)
 			}
 		}
+	}()
+
+	go func() {
+		log.Fatal(app.Listen(":4000"))
 	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
