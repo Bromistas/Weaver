@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"net/url"
 	"scraper/common"
 	"scraper/handlers"
 	"time"
@@ -16,8 +17,11 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func scrap(url string) {
-
+func generateSearchURL(query string) string {
+	// URL encode the query
+	encodedQuery := url.QueryEscape(query)
+	// Generate the Newegg search URL
+	return "https://www.newegg.com/p/pl?d=" + encodedQuery
 }
 
 func main() {
@@ -39,14 +43,15 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	//urlsToScrap := []string{
-	//	"https://www.newegg.com/abyss-blue-lenovo-ideapad-slim-5i-82xf002sus-home-personal/p/N82E16834840212",
-	//	"https://www.newegg.com/indie-black-asus-f1605va-ds74-home-personal/p/N82E16834236434?Item=9SIA7ABK6P6769",
-	//}
+	query := "gaming"
+	baseSearchURL := generateSearchURL(query)
+	baseUrlMessage := common.URLMessage{
+		URL:     baseSearchURL,
+		URLType: common.NeweggRoot,
+	}
 
 	urlsToScrap := []common.URLMessage{
-		{URL: "https://www.newegg.com/abyss-blue-lenovo-ideapad-slim-5i-82xf002sus-home-personal/p/N82E16834840212", URLType: common.NeweggProduct},
-		{URL: "https://www.newegg.com/indie-black-asus-f1605va-ds74-home-personal/p/N82E16834236434?Item=9SIA7ABK6P6769", URLType: common.NeweggProduct},
+		baseUrlMessage,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -97,6 +102,8 @@ func main() {
 				handlers.AmazonProductHandler(urlMessage.URL)
 			case common.NeweggProduct:
 				handlers.NeweggProductHandler(urlMessage.URL)
+			case common.NeweggRoot:
+				handlers.NeweggRootHandler(urlMessage.URL, ch, q)
 			default:
 				log.Printf("Unknown URL type: %v", urlMessage.URLType)
 			}

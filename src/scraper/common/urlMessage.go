@@ -5,6 +5,7 @@ type URLType int
 const (
 	AmazonProduct URLType = iota
 	NeweggProduct
+	NeweggRoot
 )
 
 type URLMessage struct {
