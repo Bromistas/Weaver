@@ -55,6 +55,8 @@ func main() {
 
 			// Process the product here
 			log.Printf("Received a product: %s", product)
+
+			Route(product)
 		}
 	}()
 
