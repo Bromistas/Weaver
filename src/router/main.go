@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"src/common"
 )
 
 func failOnError(err error, msg string) {
@@ -46,7 +47,7 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			var product Product
+			var product common.Product
 			err := json.Unmarshal(d.Body, &product)
 			if err != nil {
 				log.Fatal(err)

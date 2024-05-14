@@ -5,7 +5,7 @@ import (
 	"github.com/gocolly/colly/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"scraper/common"
+	"src/common"
 	"strconv"
 	"strings"
 )
