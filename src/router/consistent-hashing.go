@@ -12,14 +12,34 @@ type Node struct {
 	ip   string
 }
 
+type CaptainNode struct {
+	Node
+	replicationNodes []Node
+}
+
 type ConsistentHash struct {
-	nodes map[uint64]Node
+	nodes map[uint64]CaptainNode
 	ring  []uint64
 }
 
 func hash(s string) uint64 {
 	hash := sha256.Sum256([]byte(s))
 	return binary.BigEndian.Uint64(hash[:])
+}
+
+func (c *CaptainNode) AddReplication(node Node) {
+	c.replicationNodes = append(c.replicationNodes, node)
+}
+
+func NewCaptainNode(name string, address string) *CaptainNode {
+	return &CaptainNode{
+		Node: Node{
+			name: name,
+			hash: hash(name),
+			ip:   address,
+		},
+		replicationNodes: make([]Node, 0),
+	}
 }
 
 func NewNode(name string, address string) *Node {
@@ -32,12 +52,12 @@ func NewNode(name string, address string) *Node {
 
 func NewConsistentHash() *ConsistentHash {
 	return &ConsistentHash{
-		nodes: make(map[uint64]Node),
+		nodes: make(map[uint64]CaptainNode),
 		ring:  make([]uint64, 0),
 	}
 }
 
-func (c *ConsistentHash) AddNode(node *Node) {
+func (c *ConsistentHash) AddNode(node *CaptainNode) {
 	c.nodes[node.hash] = *node
 	c.ring = append(c.ring, node.hash)
 	sort.Slice(c.ring, func(i, j int) bool {
@@ -55,7 +75,7 @@ func (c *ConsistentHash) RemoveNode(node Node) {
 	}
 }
 
-func (c *ConsistentHash) GetNode(key string) Node {
+func (c *ConsistentHash) GetNode(key string) CaptainNode {
 	hash := hash(key)
 	idx := sort.Search(len(c.ring), func(i int) bool {
 		return c.ring[i] >= hash

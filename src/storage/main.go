@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
 	"src/common"
 )
@@ -34,9 +35,22 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func startServer(addr string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	log.Printf("[*] Starting server on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
 func main() {
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
 	http.HandleFunc("/product", productHandler)
 
-	log.Println("Server started on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	go startServer(":8080", &wg)
+	go startServer(":8070", &wg)
+
+	wg.Wait()
 }
