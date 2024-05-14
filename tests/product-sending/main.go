@@ -40,7 +40,7 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	product := &Product{
-		Name:        "Test Product",
+		Name:        "Test Product 2",
 		Price:       100.0,
 		URL:         "http://example.com",
 		Description: "This is a test product",

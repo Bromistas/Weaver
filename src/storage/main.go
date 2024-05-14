@@ -2,13 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"src/common"
 )
+
+const STORAGE_PATH = "storage"
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -31,6 +36,18 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Do something with the product
 	log.Printf("Received product: %+v", product)
+
+	// Save the product to a JSON file
+	productJson, err := json.MarshalIndent(product, "", "  ")
+	failOnError(err, "Failed to marshal product to JSON")
+
+	dir := fmt.Sprintf("%s/network-%s", STORAGE_PATH, r.Host)
+	err = os.MkdirAll(dir, 0755)
+	failOnError(err, "Failed to create directory")
+
+	filePath := filepath.Join(dir, fmt.Sprintf("%s.json", product.Name))
+	err = os.WriteFile(filePath, productJson, 0644)
+	failOnError(err, "Failed to write product to file")
 
 	w.WriteHeader(http.StatusOK)
 }

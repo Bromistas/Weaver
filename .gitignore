@@ -20,6 +20,8 @@
 # Go workspace file
 go.work
 
+# Jetbrains IDE project files
 .idea
 
-/src/storage/products/
+# Project ignores
+/src/storage/network-*/
