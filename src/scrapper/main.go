@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/hmrguez/weaver/src/scrapper/handlers"
+	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -70,15 +72,6 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	// TODO: Change this to regular http server
-	//app := fiber.New()
-	//
-	//app.Get("/query/:param", func(c *fiber.Ctx) error {
-	//	query := c.Params("param")
-	//	newQueryMessageSend(query, ch, q)
-	//	return c.SendString("Received param: " + query + ". Processing request")
-	//})
-
 	msgs, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
@@ -104,21 +97,27 @@ func main() {
 
 			switch urlMessage.URLType {
 			case AmazonProduct:
-				handlers.AmazonProductHandler(urlMessage.URL)
+				AmazonProductHandler(urlMessage.URL)
 			case NeweggProduct:
-				handlers.NeweggProductHandler(urlMessage.URL, ch, exch)
+				NeweggProductHandler(urlMessage.URL, ch, exch)
 			case NeweggRoot:
-				handlers.NeweggRootHandler(urlMessage.URL, ch, q)
+				NeweggRootHandler(urlMessage.URL, ch, q)
 			default:
 				log.Printf("Unknown URL type: %v", urlMessage.URLType)
 			}
 		}
 	}()
 
-	// TODO: Change this to regular http server
-	//go func() {
-	//	log.Fatal(app.Listen(":4000"))
-	//}()
+	// Server
+	http.HandleFunc("/query/", func(w http.ResponseWriter, r *http.Request) {
+		param := strings.TrimPrefix(r.URL.Path, "/query/")
+		newQueryMessageSend(param, ch, q)
+		fmt.Fprintf(w, "Received param: %s. Processing request", param)
+	})
+
+	go func() {
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
