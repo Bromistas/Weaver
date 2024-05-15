@@ -28,7 +28,7 @@ func productHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	failOnError(err, "Failed to read request body")
 
-	var product common.Product
+	var product Product
 	err = json.Unmarshal(body, &product)
 	failOnError(err, "Failed to unmarshal product")
 
