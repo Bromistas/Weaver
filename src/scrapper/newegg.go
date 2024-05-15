@@ -1,24 +1,17 @@
-package handlers
+package main
 
 import (
 	"encoding/json"
 	"github.com/gocolly/colly/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"src/common"
 	"strconv"
 	"strings"
 )
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Panicf("%s: %s", msg, err)
-	}
-}
-
 func NeweggProductHandler(url string, ch *amqp.Channel, exch string) {
 	c := colly.NewCollector()
-	product := common.Product{}
+	product := Product{}
 
 	c.OnHTML(".product-title", func(e *colly.HTMLElement) {
 		product.Name = e.Text
@@ -85,9 +78,9 @@ func NeweggRootHandler(searchURL string, ch *amqp.Channel, q amqp.Queue) {
 		}
 
 		// Add the product URL to the RabbitMQ queue
-		urlMessage := common.URLMessage{
+		urlMessage := URLMessage{
 			URL:     productURL,
-			URLType: common.NeweggProduct,
+			URLType: NeweggProduct,
 		}
 		body, err := json.Marshal(urlMessage)
 		if err != nil {
