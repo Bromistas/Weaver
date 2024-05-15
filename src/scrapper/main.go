@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/url"
 	"src/common"
-	"src/scraper/handlers"
+	"src/scrapper/handlers"
 	"time"
 )
 
