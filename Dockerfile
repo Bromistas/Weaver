@@ -12,4 +12,5 @@ RUN go build -o /weaver-$ROLE
 
 EXPOSE 8080
 
-CMD [ "/weaver-$ROLE" ]
+# TODO: Dont hardcode the role
+CMD [ "/weaver-storage" ]
