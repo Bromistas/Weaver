@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"github.com/hmrguez/weaver/src/scrapper/handlers"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"net/url"
-	"src/common"
-	"src/scrapper/handlers"
 	"time"
 )
 
@@ -27,9 +25,9 @@ func generateSearchURL(query string) string {
 
 func newQueryMessageSend(query string, ch *amqp.Channel, q amqp.Queue) {
 	baseSearchURL := generateSearchURL(query)
-	baseUrlMessage := common.URLMessage{
+	baseUrlMessage := URLMessage{
 		URL:     baseSearchURL,
-		URLType: common.NeweggRoot,
+		URLType: NeweggRoot,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -72,13 +70,14 @@ func main() {
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	app := fiber.New()
-
-	app.Get("/query/:param", func(c *fiber.Ctx) error {
-		query := c.Params("param")
-		newQueryMessageSend(query, ch, q)
-		return c.SendString("Received param: " + query + ". Processing request")
-	})
+	// TODO: Change this to regular http server
+	//app := fiber.New()
+	//
+	//app.Get("/query/:param", func(c *fiber.Ctx) error {
+	//	query := c.Params("param")
+	//	newQueryMessageSend(query, ch, q)
+	//	return c.SendString("Received param: " + query + ". Processing request")
+	//})
 
 	msgs, err := ch.Consume(
 		q.Name, // queue
@@ -97,18 +96,18 @@ func main() {
 
 	go func() {
 		for d := range msgs {
-			var urlMessage common.URLMessage
+			var urlMessage URLMessage
 			err := json.Unmarshal(d.Body, &urlMessage)
 			if err != nil {
 				log.Fatal(err)
 			}
 
 			switch urlMessage.URLType {
-			case common.AmazonProduct:
+			case AmazonProduct:
 				handlers.AmazonProductHandler(urlMessage.URL)
-			case common.NeweggProduct:
+			case NeweggProduct:
 				handlers.NeweggProductHandler(urlMessage.URL, ch, exch)
-			case common.NeweggRoot:
+			case NeweggRoot:
 				handlers.NeweggRootHandler(urlMessage.URL, ch, q)
 			default:
 				log.Printf("Unknown URL type: %v", urlMessage.URLType)
@@ -116,9 +115,10 @@ func main() {
 		}
 	}()
 
-	go func() {
-		log.Fatal(app.Listen(":4000"))
-	}()
+	// TODO: Change this to regular http server
+	//go func() {
+	//	log.Fatal(app.Listen(":4000"))
+	//}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever

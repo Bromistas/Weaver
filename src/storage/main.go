@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
-	"src/common"
 )
 
 const STORAGE_PATH = "storage"

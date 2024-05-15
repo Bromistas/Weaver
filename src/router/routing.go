@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"src/common"
 )
 
 var consistentHash *ConsistentHash
@@ -23,7 +22,7 @@ func init() {
 	// Add as many nodes as you have in your system.
 }
 
-func Send(product common.Product, addr string) {
+func Send(product Product, addr string) {
 	jsonProduct, err := json.Marshal(product)
 	if err != nil {
 		log.Printf("Failed to marshal product: %s", err)
@@ -42,7 +41,7 @@ func Send(product common.Product, addr string) {
 	}
 }
 
-func Route(product common.Product) {
+func Route(product Product) {
 	node := consistentHash.GetNode(product.Name)
 
 	Send(product, node.ip)

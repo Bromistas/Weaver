@@ -1,4 +1,4 @@
-package common
+package main
 
 type Product struct {
 	Name        string
