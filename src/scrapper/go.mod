@@ -1,6 +1,6 @@
-module github.com/bromistas/weaver/src/scrapper
+module github.com/bromistas/weaver/scrapper
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/gocolly/colly/v2 v2.1.0
