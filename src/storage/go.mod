@@ -1,3 +1,3 @@
-module github.com/hmrguez/weaver/src/storage
+module github.com/bromistas/weaver/src/storage
 
 go 1.21.5

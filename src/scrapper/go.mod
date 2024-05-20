@@ -1,4 +1,4 @@
-module github.com/hmrguez/weaver/src/scrapper
+module github.com/bromistas/weaver/src/scrapper
 
 go 1.21.5
 
