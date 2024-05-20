@@ -1,13 +1,15 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
+	"github.com/go-redis/redis/v8"
 	"log"
-	"net/http"
+	"strings"
 )
 
 var consistentHash *ConsistentHash
+var ctx = context.Background()
 
 func init() {
 	// Initialize the consistent hash object here.
@@ -29,16 +31,21 @@ func Send(product Product, addr string) {
 		return
 	}
 
-	resp, err := http.Post(addr+"/product", "application/json", bytes.NewBuffer(jsonProduct))
+	addr, _ = strings.CutPrefix(addr, "http://")
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	err = client.Set(ctx, product.Name, jsonProduct, 0).Err()
 	if err != nil {
-		log.Printf("Failed to route product: %s", err)
+		log.Printf("Failed to set product: %s", err)
 		return
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Received non-OK response while routing product: %d", resp.StatusCode)
-	}
+	log.Printf("Product %s inserted correctly in node %s", product.Name, addr)
 }
 
 func Route(product Product) {

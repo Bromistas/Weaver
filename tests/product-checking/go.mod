@@ -1,8 +1,6 @@
-module github.com/hmrguez/weaver/src/router
+module product-checking
 
-go 1.21.5
-
-require github.com/rabbitmq/amqp091-go v1.10.0
+go 1.21
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
