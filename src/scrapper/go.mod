@@ -1,4 +1,4 @@
-module github.com/bromistas/weaver/scrapper
+module github.com/bromistas/weaver/src/scrapper
 
 go 1.21
 

@@ -1,4 +1,4 @@
-module github.com/bromistas/weaver/router
+module github.com/bromistas/weaver/src/router
 
 go 1.21
 
