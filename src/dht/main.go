@@ -1,8 +1,9 @@
-package main
+package dht
 
 type Dht struct {
 }
 
-func main() {
-
+// New creates a new instance of Dht.
+func New() *Dht {
+	return &Dht{}
 }
