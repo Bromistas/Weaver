@@ -1,6 +1,6 @@
-module github.com/bromistas/weaver/src/router
+module github.com/bromistas/weaver-router
 
-go 1.21
+go 1.21.5
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
