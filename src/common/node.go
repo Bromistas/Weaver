@@ -1,16 +1,16 @@
 package common
 
 type Node struct {
-	ID     uint64
-	IDList []uint64
-	IDMap  map[uint64]*Node
+	ID     int
+	IDList []int
+	IDMap  map[int]*Node
 }
 
-func NewNode(id uint64) *Node {
+func NewNode(id int) *Node {
 	n := &Node{
 		ID:     id,
-		IDList: []uint64{},
-		IDMap:  make(map[uint64]*Node),
+		IDList: []int{},
+		IDMap:  make(map[int]*Node),
 	}
 
 	n.IDList = append(n.IDList, n.ID)
@@ -21,13 +21,13 @@ func NewNode(id uint64) *Node {
 
 func (n *Node) Insert(node *Node) {
 	if n.IDMap[node.ID] == nil {
-		n.IDList = append(n.IDList, node.ID)
+		n.IDList = insertIntoSorted(n.IDList, node.ID)
 		n.IDMap[node.ID] = node
 		n.notifyInsertion(node)
 	}
 }
 
-func (n *Node) GetMap() map[uint64]*Node {
+func (n *Node) GetMap() map[int]*Node {
 	//TODO
 	return n.IDMap
 }
@@ -77,9 +77,9 @@ func (n *Node) Remove(node *Node) {
 	if _, ok := n.IDMap[node.ID]; ok {
 		delete(n.IDMap, node.ID)
 
-		for i, id := range n.IDList {
+		for _, id := range n.IDList {
 			if id == node.ID {
-				n.IDList = append(n.IDList[:i], n.IDList[i+1:]...)
+				n.IDList = removeFromSorted(n.IDList, node.ID)
 				break
 			}
 		}
