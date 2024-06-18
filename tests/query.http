@@ -1,4 +1,11 @@
 ### GET request to example server
-GET http://localhost:4000/query/gaming
+GET http://localhost:8081/getMap
 
-###
+### Insert a new node
+POST http://localhost:8080/insert
+Content-Type: application/json
+
+{
+  "id": 123,
+  "address": "localhost:8081"
+}

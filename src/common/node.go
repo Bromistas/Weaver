@@ -1,16 +1,25 @@
 package common
 
+import (
+	"net"
+	"strconv"
+)
+
 type Node struct {
-	ID     int
-	IDList []int
-	IDMap  map[int]*Node
+	ID      int
+	Address string
+	IDList  []int
+	IDMap   map[int]*Node
+	ConnMap map[int]net.Conn
 }
 
-func NewNode(id int) *Node {
+func NewNode(id int, address string) *Node {
 	n := &Node{
-		ID:     id,
-		IDList: []int{},
-		IDMap:  make(map[int]*Node),
+		ID:      id,
+		Address: address,
+		IDList:  []int{},
+		IDMap:   make(map[int]*Node),
+		ConnMap: make(map[int]net.Conn),
 	}
 
 	n.IDList = append(n.IDList, n.ID)
@@ -19,30 +28,34 @@ func NewNode(id int) *Node {
 	return n
 }
 
+func (n *Node) Connect(node *Node) error {
+	conn, err := net.Dial("tcp", node.Address)
+	if err != nil {
+		return err
+	}
+
+	n.ConnMap[node.ID] = conn
+	return nil
+}
+
 func (n *Node) Insert(node *Node) {
 	if n.IDMap[node.ID] == nil {
 		n.IDList = insertIntoSorted(n.IDList, node.ID)
 		n.IDMap[node.ID] = node
-		n.notifyInsertion(node)
+		//n.notifyInsertion(node)
 	}
 }
 
 func (n *Node) GetMap() map[int]*Node {
-	//TODO
 	return n.IDMap
 }
 
-func (n *Node) Join(node *Node) {
-	node.Insert(n)
-	for _, id := range node.GetMap() {
-		n.Insert(id)
-	}
-}
-
 func (n *Node) notifyInsertion(node *Node) {
-	// TODO
 	for _, id := range n.IDMap {
-		id.Insert(node)
+		conn, ok := n.ConnMap[id.ID]
+		if ok {
+			_, _ = conn.Write([]byte("insert:" + strconv.Itoa(node.ID)))
+		}
 	}
 }
 
@@ -58,18 +71,31 @@ func (n *Node) Stabilize() {
 }
 
 func (n *Node) Ping(node *Node) bool {
-	// TODO
-	if n.IDMap[node.ID] != nil {
-		return true
-	} else {
+	conn, ok := n.ConnMap[node.ID]
+	if !ok {
 		return false
 	}
+
+	_, err := conn.Write([]byte("ping"))
+	if err != nil {
+		return false
+	}
+
+	buf := make([]byte, 4)
+	_, err = conn.Read(buf)
+	if err != nil {
+		return false
+	}
+
+	return string(buf) == "pong"
 }
 
 func (n *Node) notifyRemoval(node *Node) {
-	// TODO
-	for _, item := range n.IDMap {
-		item.Remove(node)
+	for _, id := range n.IDMap {
+		conn, ok := n.ConnMap[id.ID]
+		if ok {
+			_, _ = conn.Write([]byte("remove:" + strconv.Itoa(node.ID)))
+		}
 	}
 }
 

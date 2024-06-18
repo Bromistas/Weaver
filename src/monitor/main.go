@@ -2,36 +2,55 @@ package main
 
 import (
 	"fmt"
-	"github.com/bromistas/weaver-commons"
+	common "github.com/bromistas/weaver-commons"
+	"log"
+	"net"
 	"time"
 )
 
 func main() {
-	node1 := common.NewNode(1)
-	node2 := common.NewNode(3)
-	node3 := common.NewNode(5)
-	node4 := common.NewNode(7)
 
-	node2.Join(node1)
-	node3.Join(node1)
-	node4.Join(node2)
+	node1 := common.NewNode(1, "localhost:8080")
+	server1 := common.NewServer(node1, "localhost:8080")
+	go func() {
+		fmt.Println("[x] Server 1 started")
+		err := server1.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
-	go node1.Stabilize()
-	go node2.Stabilize()
-	go node3.Stabilize()
+	node2 := common.NewNode(2, "localhost:8081")
+	server2 := common.NewServer(node2, "localhost:8081")
+	go func() {
+		fmt.Println("[x] Server 2 started")
+		err := server2.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
-	// Print everybody's list of nodes and maps
+	node3 := common.NewNode(3, "localhost:8082")
+	server3 := common.NewServer(node3, "localhost:8082")
+	go func() {
+		fmt.Println("[x] Server 3 started")
+		err := server3.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	time.Sleep(1 * time.Second)
-	//for {
-	fmt.Printf("Node 1: %v\n", node1)
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:8081")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = server1.Join(addr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Printf("Node 2: %v\n", node2)
-	fmt.Printf("Node 3: %v\n", node3)
-	fmt.Printf("Node 4: %v\n", node4)
-
-	fmt.Printf("Lookup for 2 :%d\n", node1.Lookup(2).ID)
-	fmt.Printf("Lookup for 4 :%d\n", node1.Lookup(4).ID)
-	fmt.Printf("Lookup for 5 :%d\n", node1.Lookup(5).ID)
-	fmt.Printf("Lookup for 10 :%d\n", node1.Lookup(10).ID)
+	// Keep the main function running
+	select {}
 
 }
