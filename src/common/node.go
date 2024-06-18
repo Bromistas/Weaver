@@ -13,6 +13,11 @@ type Node struct {
 	ConnMap map[int]net.Conn
 }
 
+type NodeFacet struct {
+	ID      int
+	Address string
+}
+
 func NewNode(id int, address string) *Node {
 	n := &Node{
 		ID:      id,

@@ -118,14 +118,13 @@ func (s *Server) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) Join(addr net.Addr) error {
-	// Create a copy of the node
-	nodeCopy := *s.Node
-
-	// Set the map entry for the node itself to nil in the copy
-	nodeCopy.IDMap[nodeCopy.ID] = nil
+	node := &Node{
+		ID:      s.Node.ID,
+		Address: s.Node.Address,
+	}
 
 	// Marshal the copy to JSON
-	jsonData, err := json.Marshal(nodeCopy)
+	jsonData, err := json.Marshal(node)
 	if err != nil {
 		fmt.Println("Error marshalling JSON data")
 		return err
