@@ -76,12 +76,12 @@ func (n *Node) notifyRemoval(node *Node) {
 func (n *Node) Remove(node *Node) {
 	if _, ok := n.IDMap[node.ID]; ok {
 		delete(n.IDMap, node.ID)
-
-		for _, id := range n.IDList {
-			if id == node.ID {
-				n.IDList = removeFromSorted(n.IDList, node.ID)
-				break
-			}
-		}
+		n.IDList = removeFromSorted(n.IDList, node.ID)
 	}
+}
+
+func (n *Node) Lookup(key int) *Node {
+	i := searchInSorted(n.IDList, key)
+	i -= 1
+	return n.IDMap[n.IDList[i]]
 }

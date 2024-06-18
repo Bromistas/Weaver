@@ -17,3 +17,7 @@ func removeFromSorted(slice []int, item int) []int {
 	}
 	return slice
 }
+
+func searchInSorted(slice []int, item int) int {
+	return sort.Search(len(slice), func(i int) bool { return slice[i] > item })
+}
