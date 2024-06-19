@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"strconv"
 )
@@ -44,16 +43,34 @@ func (s *Server) Start() error {
 
 func (s *Server) JoinHandler(w http.ResponseWriter, r *http.Request) {
 	s.InsertHandler(w, r)
-	s.GetMapHandler(w, r)
+
+	mapData := s.Node.GetMap()
+	answerList := make([]NodeFacet, 0)
+
+	for key, value := range mapData {
+		answerList = append(answerList, NodeFacet{ID: key, Address: value})
+	}
+
+	data, err := json.Marshal(answerList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 func (s *Server) GetMapHandler(w http.ResponseWriter, r *http.Request) {
 
 	mapData := s.Node.GetMap()
+	answerList := make([]NodeFacet, 0)
 
-	mapData[s.Node.ID] = nil
+	for key, value := range mapData {
+		answerList = append(answerList, NodeFacet{ID: key, Address: value})
+	}
 
-	data, err := json.Marshal(mapData)
+	data, err := json.Marshal(answerList)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -74,9 +91,9 @@ func (s *Server) InsertHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.Node.Insert(&newNode)
 
-	for _, existingNode := range s.Node.IDMap {
+	for key, address := range s.Node.IDMap {
 
-		if existingNode.ID == s.Node.ID || existingNode.ID == newNode.ID {
+		if key == s.Node.ID || key == newNode.ID {
 			continue
 		}
 
@@ -89,7 +106,7 @@ func (s *Server) InsertHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Send the marshalled JSON data
-		resp, err := http.Post("http://"+existingNode.Address+"/insert", "application/json", bytes.NewBuffer(jsonData))
+		resp, err := http.Post("http://"+address+"/insert", "application/json", bytes.NewBuffer(jsonData))
 		if err != nil {
 			fmt.Println("Error sending POST request")
 			//http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,7 +134,7 @@ func (s *Server) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func (s Server) Join(addr net.Addr) error {
+func (s Server) Join(addr string) error {
 	node := &Node{
 		ID:      s.Node.ID,
 		Address: s.Node.Address,
@@ -131,7 +148,7 @@ func (s Server) Join(addr net.Addr) error {
 	}
 
 	// Send the marshalled JSON data
-	resp, err := http.Post("http://"+addr.String()+"/join", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post("http://"+addr+"/join", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error sending POST request")
 		return err
@@ -139,14 +156,20 @@ func (s Server) Join(addr net.Addr) error {
 
 	// The response from the join endpoint is a map of the network. We will unmarshal this response into a map of nodes.
 	decoder := json.NewDecoder(resp.Body)
-	var mapData map[int]Node
+	var mapData []NodeFacet
 	err = decoder.Decode(&mapData)
 	if err != nil {
 		fmt.Println("Error decoding JSON data")
 		return err
 	}
 
-	for _, node := range mapData {
+	for _, item := range mapData {
+
+		node := Node{
+			ID:      item.ID,
+			Address: item.Address,
+		}
+
 		s.Node.Insert(&node)
 	}
 

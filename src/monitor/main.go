@@ -4,7 +4,6 @@ import (
 	"fmt"
 	common "github.com/bromistas/weaver-commons"
 	"log"
-	"net"
 	"time"
 )
 
@@ -41,14 +40,14 @@ func main() {
 	}()
 
 	time.Sleep(1 * time.Second)
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:8081")
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = server1.Join(addr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	//addr, err := net.ResolveTCPAddr("tcp", "localhost:8081")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//err := server1.Join("localhost:8081")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	// Keep the main function running
 	select {}
