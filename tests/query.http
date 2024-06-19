@@ -1,5 +1,5 @@
 ### GET request to example server
-GET http://localhost:8080/getMap
+GET http://localhost:8082/getMap
 
 ### Insert a new node
 POST http://localhost:8080/insert

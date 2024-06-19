@@ -15,7 +15,7 @@ func main() {
 		fmt.Println("[x] Server 1 started")
 		err := server1.Start()
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}()
 
@@ -25,7 +25,7 @@ func main() {
 		fmt.Println("[x] Server 2 started")
 		err := server2.Start()
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}()
 
@@ -35,7 +35,7 @@ func main() {
 		fmt.Println("[x] Server 3 started")
 		err := server3.Start()
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}()
 
@@ -44,10 +44,16 @@ func main() {
 	//if err != nil {
 	//	log.Fatal(err)
 	//}
-	//err := server1.Join("localhost:8081")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	err := server1.Join(node2)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//
+	//nodeToJoin = common.NewNode(7, "localhost:8082")
+	err = server1.Join(node3)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Keep the main function running
 	select {}

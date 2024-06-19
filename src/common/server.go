@@ -134,21 +134,16 @@ func (s *Server) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func (s Server) Join(addr string) error {
-	node := &Node{
-		ID:      s.Node.ID,
-		Address: s.Node.Address,
-	}
-
-	// Marshal the copy to JSON
-	jsonData, err := json.Marshal(node)
+func (s Server) Join(newNode *Node) error {
+	// Marshal the new node to JSON
+	jsonData, err := json.Marshal(newNode)
 	if err != nil {
 		fmt.Println("Error marshalling JSON data")
 		return err
 	}
 
 	// Send the marshalled JSON data
-	resp, err := http.Post("http://"+addr+"/join", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post("http://"+newNode.Address+"/join", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error sending POST request")
 		return err
@@ -165,12 +160,16 @@ func (s Server) Join(addr string) error {
 
 	for _, item := range mapData {
 
-		node := Node{
+		if item.ID == s.Node.ID {
+			continue
+		}
+
+		n := Node{
 			ID:      item.ID,
 			Address: item.Address,
 		}
 
-		s.Node.Insert(&node)
+		s.Node.Insert(&n)
 	}
 
 	// Close the response body
