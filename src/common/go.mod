@@ -1,3 +1,3 @@
-module github.com/bromistas/weaver-commons
+module commons
 
 go 1.21.5

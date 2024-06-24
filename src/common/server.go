@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 var registered bool = false
@@ -108,7 +109,7 @@ func (s *Server) InsertHandler(w http.ResponseWriter, r *http.Request) {
 		// Send the marshalled JSON data
 		resp, err := http.Post("http://"+address+"/insert", "application/json", bytes.NewBuffer(jsonData))
 		if err != nil {
-			fmt.Println("Error sending POST request")
+			fmt.Println("Error sending POST request from ", s.Node.ID, " ", err)
 			//http.Error(w, err.Error(), http.StatusInternalServerError)
 			continue
 		}
@@ -145,7 +146,7 @@ func (s Server) Join(newNode *Node) error {
 	// Send the marshalled JSON data
 	resp, err := http.Post("http://"+newNode.Address+"/join", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error sending POST request")
+		fmt.Println("Error sending POST request from ", s.Node.ID, " ", err)
 		return err
 	}
 
@@ -176,4 +177,42 @@ func (s Server) Join(newNode *Node) error {
 	defer resp.Body.Close()
 
 	return nil
+}
+
+func (s Server) Stabilize() {
+	for {
+		s.Node.Mutex.RLock()
+		ids := s.Node.IDList
+		s.Node.Mutex.RUnlock()
+
+		for _, key := range ids {
+
+			if key == s.Node.ID {
+				continue
+			}
+
+			s.Node.Mutex.RLock()
+			address := s.Node.IDMap[key]
+			s.Node.Mutex.RUnlock()
+
+			resp, err := http.Get("http://" + address + "/healthcheck")
+			if err != nil {
+				fmt.Println("Error sending GET request from ", s.Node.ID, " ", err, " to ", key, " with address ", address)
+				s.Node.Remove(NewNode(key, ""))
+				continue
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				fmt.Println("Error in healthcheck")
+				s.Node.Remove(NewNode(key, ""))
+				continue
+			}
+
+			time.Sleep(50)
+
+			defer resp.Body.Close()
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 }

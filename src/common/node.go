@@ -1,10 +1,13 @@
 package common
 
+import "sync"
+
 type Node struct {
 	ID      int
 	Address string
 	IDList  []int
 	IDMap   map[int]string
+	Mutex   sync.RWMutex
 }
 
 type NodeFacet struct {
@@ -27,6 +30,9 @@ func NewNode(id int, address string) *Node {
 }
 
 func (n *Node) Insert(node *Node) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
 	if n.IDMap[node.ID] == "" {
 		n.IDList = insertIntoSorted(n.IDList, node.ID)
 		n.IDMap[node.ID] = node.Address
@@ -39,6 +45,9 @@ func (n *Node) GetMap() map[int]string {
 }
 
 func (n *Node) Remove(node *Node) {
+	n.Mutex.Lock()
+	defer n.Mutex.Unlock()
+
 	if _, ok := n.IDMap[node.ID]; ok {
 		delete(n.IDMap, node.ID)
 		n.IDList = removeFromSorted(n.IDList, node.ID)

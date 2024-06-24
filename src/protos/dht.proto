@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package protos;
+
+// Chord RPCs
+
+message FindSuccessorRequest {
+    bytes id = 1;
+}
+
+message Node {
+    bytes id = 1;
+    string addr = 2;
+}
+
+// DHT Common RPCs
+
+message Key {
+    string key = 1;
+}
+
+message Pair {
+    string key = 1;
+    string value = 2;
+}
+
+message Result {
+    string result = 1;
+}
+
+message Void {
+}
+
+message ControlRequest {
+    string control = 1;
+}
+
+// Kad RPCs
+
+message PingRequest {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message PingReply {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message FindNodeRequest {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message FindNodeReply {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message FindValueRequest {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message FindValueReply {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message StoreRequest {
+    bytes id = 1;
+    string addr = 2;
+}
+
+message StoreReply {
+    bytes id = 1;
+    string addr = 2;
+}
+
+service Chord {
+    rpc FindSuccessor (FindSuccessorRequest) returns (Node) {
+    }
+
+    rpc Notify (Node) returns (Result) {
+    }
+
+    rpc FindPredecessor (Node) returns (Node) {
+    }
+
+    rpc Ping (Node) returns (Void) {
+    }
+}
+
+service Kad {
+    rpc Ping (PingRequest) returns (PingReply) {
+    }
+
+    rpc FindNode (FindNodeRequest) returns (FindNodeReply) {
+    }
+
+    rpc FindValue (FindValueRequest) returns (FindValueReply) {
+    }
+
+    rpc Store (StoreRequest) returns (StoreReply) {
+    }
+}
+
+service DHT {
+    rpc Get (Key) returns (Pair) {
+    }
+
+    rpc Put (Pair) returns (Result) {
+    }
+
+    rpc Del (Key) returns (Result) {
+    }
+
+    rpc Control (ControlRequest) returns (Result) {
+
+    }
+}
