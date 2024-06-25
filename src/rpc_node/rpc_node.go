@@ -19,9 +19,9 @@ func main() {
 	group := &sync.WaitGroup{}
 
 	// Create three nodes
-	node1 := node.NewChordNode(address1)
-	node2 := node.NewChordNode(address2)
-	node3 := node.NewChordNode(address3)
+	node1 := node.NewChordNode(address1, nil)
+	node2 := node.NewChordNode(address2, nil)
+	node3 := node.NewChordNode(address3, nil)
 
 	fmt.Println("Nodes created")
 

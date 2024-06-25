@@ -47,6 +47,18 @@ func (s *ChordServer) Put(ctx context.Context, in *pb.Pair) (*pb.Result, error) 
 		s.mux.Lock()
 		defer s.mux.Unlock()
 		s.storage[in.Key] = in.Value
+		fmt.Printf("Key %v has been added to the storage \n", in.Key)
+
+		if s.self.PutCallback != nil {
+
+			fmt.Println("Doing callback")
+			err := s.self.PutCallback(ctx, in)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Println("Correctly done callback")
+		}
+
 		return &pb.Result{Result: "success"}, nil
 	} else {
 		logger.Tracef("forwarding request to %X", node.Id)
@@ -134,7 +146,7 @@ func ServeChord(ctx context.Context, node *ChordNode, bootstrap_node *ChordNode,
 	logger := log.WithFields(log.Fields{"from": "serve", "id": fmt.Sprintf("%X", node.Id)})
 	defer group.Done()
 	// setup Chord instances
-	server := NewChordServer(node.Address)
+	server := NewChordServer(node.Address, node.PutCallback)
 	lis, err := net.Listen("tcp", node.Address)
 	if err != nil {
 		logger.Fatalf("failed to listen: %v", err)

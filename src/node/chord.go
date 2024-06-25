@@ -17,8 +17,9 @@ const (
 )
 
 type ChordNode struct {
-	Id      []byte
-	Address string
+	Id          []byte
+	Address     string
+	PutCallback func(context.Context, *pb.Pair) error
 }
 
 type ChordServer struct {
@@ -39,17 +40,19 @@ func (s *ChordServer) successor() *ChordNode {
 	}
 }
 
-func NewChordNode(addr string) *ChordNode {
+func NewChordNode(addr string, callback func(context.Context, *pb.Pair) error) *ChordNode {
 	return &ChordNode{
-		Id:      generate_chord_hash(addr),
-		Address: addr,
+		Id:          generate_chord_hash(addr),
+		Address:     addr,
+		PutCallback: callback,
 	}
 }
 
-func NewChordServer(addr string) *ChordServer {
+func NewChordServer(addr string, callback func(context.Context, *pb.Pair) error) *ChordServer {
 	self := &ChordNode{
 		generate_chord_hash(addr),
 		addr,
+		callback,
 	}
 	finger := make([]*ChordNode, M)
 	finger[0] = self
@@ -168,7 +171,7 @@ func (s *ChordServer) Notify(ctx context.Context, in *pb.Node) (*pb.Result, erro
 	defer s.mux.Unlock()
 	if s.predecessor == nil ||
 		in_range_exclude(in.Id, s.predecessor.Id, s.self.Id) {
-		s.predecessor = &ChordNode{in.Id, in.Addr}
+		s.predecessor = &ChordNode{in.Id, in.Addr, nil}
 	}
 	return &pb.Result{Result: "success"}, nil
 }
@@ -203,7 +206,7 @@ func (s *ChordServer) FixFingers(ctx context.Context) error {
 		return err
 	}
 	s.mux.Lock()
-	s.finger[next] = &ChordNode{x.Id, x.Addr}
+	s.finger[next] = &ChordNode{x.Id, x.Addr, nil}
 	defer s.mux.Unlock()
 	return nil
 }
@@ -241,7 +244,7 @@ func (n *ChordNode) FindSuccessor(ctx context.Context, id []byte) (*ChordNode, e
 	if err != nil {
 		return nil, err
 	}
-	return &ChordNode{r.Id, r.Addr}, nil
+	return &ChordNode{r.Id, r.Addr, nil}, nil
 }
 
 func (n *ChordNode) FindPredecessor(ctx context.Context, self *ChordNode) (*ChordNode, error) {
@@ -255,7 +258,7 @@ func (n *ChordNode) FindPredecessor(ctx context.Context, self *ChordNode) (*Chor
 	if err != nil {
 		return nil, err
 	}
-	return &ChordNode{r.Id, r.Addr}, nil
+	return &ChordNode{r.Id, r.Addr, nil}, nil
 }
 
 func (n *ChordNode) Notify(ctx context.Context, self *ChordNode) error {
