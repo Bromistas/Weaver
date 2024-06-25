@@ -63,7 +63,7 @@ func main() {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"hello", // name
+		"scrap", // name
 		false,   // durable
 		false,   // delete when unused
 		false,   // exclusive
@@ -83,13 +83,17 @@ func main() {
 	)
 	failOnError(err, "Failed to register a consumer")
 
-	exch := "products"
+	//exch := "products"
 
 	var forever chan struct{}
 
 	go func() {
 		for d := range msgs {
 			var urlMessage URLMessage
+
+			// Log message
+			log.Printf("Received a message: %s", d.Body)
+
 			err := json.Unmarshal(d.Body, &urlMessage)
 			if err != nil {
 				log.Fatal(err)
@@ -99,7 +103,7 @@ func main() {
 			case AmazonProduct:
 				AmazonProductHandler(urlMessage.URL)
 			case NeweggProduct:
-				NeweggProductHandler(urlMessage.URL, ch, exch)
+				NeweggProductHandler(urlMessage.URL)
 			case NeweggRoot:
 				NeweggRootHandler(urlMessage.URL, ch, q)
 			default:

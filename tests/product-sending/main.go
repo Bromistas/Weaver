@@ -20,6 +20,19 @@ func failOnError(err error, msg string) {
 	}
 }
 
+type URLMessage struct {
+	URL     string
+	URLType URLType
+}
+
+type URLType int
+
+const (
+	AmazonProduct URLType = iota
+	NeweggProduct
+	NeweggRoot
+)
+
 func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -30,24 +43,21 @@ func main() {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"store-products", // name
-		false,            // durable
-		false,            // delete when unused
-		false,            // exclusive
-		false,            // no-wait
-		nil,              // arguments
+		"scrap", // name
+		false,   // durable
+		false,   // delete when unused
+		false,   // exclusive
+		false,   // no-wait
+		nil,     // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	product := &Product{
-		Name:        "Test Product 2",
-		Price:       100.0,
-		URL:         "http://example.com",
-		Description: "This is a test product",
-		Rating:      "5 stars",
+	urlMessage := URLMessage{
+		URL:     "https://www.amazon.com/Nespresso-Vertuoline-Seller-Assortment-Count/dp/B01N05APQY/ref=pd_bxgy_thbs_d_sccl_1/137-8101859-8760144?content-id=amzn1.sym.c51e3ad7-b551-4b1a-b43c-3cf69addb649",
+		URLType: AmazonProduct,
 	}
 
-	body, err := json.Marshal(product)
+	body, err := json.Marshal(urlMessage)
 	failOnError(err, "Failed to encode product into JSON")
 
 	err = ch.Publish(

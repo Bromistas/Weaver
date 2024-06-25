@@ -77,13 +77,5 @@ func main() {
 		fmt.Println("Node1 joined the network")
 	}()
 
-	time.Sleep(1 * time.Second)
-
-	key := "product1"
-	value := "{\"id\": \"123\", \"name\": \"the\", \"price\":1444}"
-	put_pair(node1.Address, key, value, group)
-
-	// Test querying for product1
-
 	group.Wait()
 }

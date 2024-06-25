@@ -1,15 +1,41 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gocolly/colly/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"google.golang.org/grpc"
 	"log"
+	pb "protos"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
-func NeweggProductHandler(url string, ch *amqp.Channel, exch string) {
+const address = "localhost:50051"
+
+func put_pair(addr, k, v string, group *sync.WaitGroup) {
+	defer group.Done()
+
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("connection to %v failed: %v", addr, err)
+	}
+	defer conn.Close()
+	c := pb.NewDHTClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	_, err = c.Put(ctx, &pb.Pair{Key: k, Value: v})
+	if err != nil {
+		log.Fatalf("could not put to %v: %v", addr, err)
+	}
+}
+
+func NeweggProductHandler(url string) {
 	c := colly.NewCollector()
 	product := Product{}
 
@@ -45,20 +71,19 @@ func NeweggProductHandler(url string, ch *amqp.Channel, exch string) {
 		log.Fatal(err)
 	}
 
-	err = ch.Publish(
-		exch,  // exchange
-		"",    // routing key
-		false, // mandatory
-		false, // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		})
-	failOnError(err, "Failed to publish a message")
+	// Put to the database
+	put_pair(address, product.Name, string(body), &sync.WaitGroup{})
 }
 
 func NeweggRootHandler(searchURL string, ch *amqp.Channel, q amqp.Queue) {
 	c := colly.NewCollector()
+
+	c.OnHTML(".item-cells-wrap", func(e *colly.HTMLElement) {
+		// Log the search results
+		log.Printf("Found something\n")
+		log.Printf("Found {%s} products\n", e.Text)
+
+	})
 
 	// This selector will need to be adjusted to match the actual structure of the Newegg search results page
 	c.OnHTML(".item-cell", func(e *colly.HTMLElement) {
