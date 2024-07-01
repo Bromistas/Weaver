@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/gocolly/colly/v2"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 )
 
-func AmazonProductHandler(url string) {
+func (s ScrapperNode) AmazonProductHandler(url string) {
 	fmt.Println("Amazon Product Handler")
 
 	// Scrap and create a product with name, price and rating
@@ -39,8 +40,10 @@ func AmazonProductHandler(url string) {
 		log.Fatal(err)
 	}
 
+	addr := s.StorageAddress + ":" + strconv.Itoa(s.StoragePort)
+
 	// Put to the database
 	group := &sync.WaitGroup{}
 	group.Add(1)
-	put_pair(address, product.Name, string(body), group)
+	put_pair(addr, product.Name, string(body), group)
 }

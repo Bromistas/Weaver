@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
+	common "commons"
 	"encoding/json"
-	"fmt"
+	"github.com/grandcat/zeroconf"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -18,41 +17,6 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func generateSearchURL(query string) string {
-	// URL encode the query
-	encodedQuery := url.QueryEscape(query)
-	// Generate the Newegg search URL
-	return "https://www.newegg.com/p/pl?d=" + encodedQuery
-}
-
-func newQueryMessageSend(query string, ch *amqp.Channel, q amqp.Queue) {
-	baseSearchURL := generateSearchURL(query)
-	baseUrlMessage := URLMessage{
-		URL:     baseSearchURL,
-		URLType: NeweggRoot,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	body, err := json.Marshal(baseUrlMessage)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = ch.PublishWithContext(ctx,
-		"",     // exchange
-		q.Name, // routing key
-		false,  // mandatory
-		false,  // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		})
-	failOnError(err, "Failed to publish a message")
-	log.Printf(" [x] Sent %s\n", baseUrlMessage.URL)
-}
-
 func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -61,6 +25,8 @@ func main() {
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
+
+	node := &ScrapperNode{}
 
 	q, err := ch.QueueDeclare(
 		"scrap", // name
@@ -101,7 +67,7 @@ func main() {
 
 			switch urlMessage.URLType {
 			case AmazonProduct:
-				AmazonProductHandler(urlMessage.URL)
+				node.AmazonProductHandler(urlMessage.URL)
 			case NeweggProduct:
 				NeweggProductHandler(urlMessage.URL)
 			case NeweggRoot:
@@ -112,16 +78,24 @@ func main() {
 		}
 	}()
 
-	// Server
-	http.HandleFunc("/query/", func(w http.ResponseWriter, r *http.Request) {
-		param := strings.TrimPrefix(r.URL.Path, "/query/")
-		newQueryMessageSend(param, ch, q)
-		fmt.Fprintf(w, "Received param: %s. Processing request", param)
-	})
-
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
+
+	// Make a discovery and listen for services
+
+	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+		if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
+			if len(entry.AddrIPv4) == 0 {
+				log.Printf("Found service: %s, but no IP address", entry.ServiceInstanceName(), ". Going localhost")
+				node.StorageAddress = "localhost"
+				node.StoragePort = entry.Port
+			}
+			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
+		}
+	}
+
+	common.Discover("_http._tcp", "local.", 5*time.Second, discoveryCallback)
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
