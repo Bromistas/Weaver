@@ -12,6 +12,7 @@ import (
 	"node"
 	"os"
 	pb "protos"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -74,7 +75,55 @@ func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	fmt.Println("Node1 joined the network")
 }
 
-func mainWrapper(address string, port int, group *sync.WaitGroup, wait time.Duration) {
+func CheckIps() (net.IP, error) {
+	// Get the default network interface
+	iface, err := net.InterfaceByName("eth0")
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	// Get the IP addresses associated with this interface
+	addrs, err := iface.Addrs()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	var ip net.IP
+	for _, addr := range addrs {
+
+		if strings.Contains(addr.String(), "::") {
+			continue
+		}
+
+		switch v := addr.(type) {
+		case *net.IPNet:
+			//if strings.Contains(v.String(), "::"){
+			ip = v.IP
+			//}
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip != nil {
+			fmt.Printf("%s has IP %s\n", iface.Name, ip.String())
+		}
+	}
+
+	return ip, nil
+}
+
+func mainWrapper(group *sync.WaitGroup) {
+	defer group.Done()
+
+	ip, _ := CheckIps()
+	//ip := net.ParseIP("127.0.0.1")
+
+	//address := os.Getenv("ADDRESS")
+	address := ip.String() + ":" + os.Getenv("PORT")
+	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	waitTime, _ := time.ParseDuration(os.Getenv("WAIT_TIME"))
+
 	node1 := node.NewChordNode(address, CustomPut)
 
 	found_ip := ""
@@ -87,16 +136,19 @@ func mainWrapper(address string, port int, group *sync.WaitGroup, wait time.Dura
 				found_ip = "localhost"
 				found_port = entry.Port
 			} else {
-				found_ip = entry.AddrIPv4[0].String()
-				found_port = entry.Port
+				temp := entry.AddrIPv4[0].String()
+
+				if !strings.Contains(found_ip, "::") {
+					found_ip = temp
+					found_port = entry.Port
+				}
 			}
 			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
 		}
 	}
 
-	common.Discover("_http._tcp", "local.", 5*time.Second, discoveryCallback)
+	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
 
-	group.Add(1)
 	if found_ip != "" {
 		fmt.Println("Found storage node, joining the ring")
 		node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
@@ -106,10 +158,10 @@ func mainWrapper(address string, port int, group *sync.WaitGroup, wait time.Dura
 		go ServeChordWrapper(node1, nil, group)
 	}
 
+	// TODO: change this is hardcoded for localhost
 	serviceName := "StorageNode"
 	serviceType := "_http._tcp"
 	domain := "local."
-	ip := net.ParseIP("127.0.0.1")
 
 	err := common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
 	if err != nil {
@@ -120,9 +172,12 @@ func mainWrapper(address string, port int, group *sync.WaitGroup, wait time.Dura
 func main() {
 	group := &sync.WaitGroup{}
 
-	go mainWrapper("127.0.0.1:50051", 50051, group, 5*time.Second)
-	time.Sleep(7 * time.Second)
-	go mainWrapper("127.0.0.1:50052", 50052, group, 5*time.Second)
+	//os.Setenv("ADDRESS", "127.0.0.1:50051")
+	//os.Setenv("PORT", "50051")
+	//os.Setenv("WAIT_TIME", "2s")
+
+	group.Add(1)
+	go mainWrapper(group)
 
 	group.Wait()
 }

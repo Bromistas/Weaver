@@ -1,16 +1,6 @@
 FROM golang:1.21-alpine
 
-WORKDIR /app
-ARG ROLE
+ENV ADDRESS="127.0.0.1:50051"
+ENV PORT="50051"
+ENV WAIT_TIME="3"
 
-COPY src/$ROLE/go.mod ./
-RUN go mod download
-
-COPY src/$ROLE ./
-
-RUN go build -o /weaver-$ROLE
-
-EXPOSE 8080
-
-# TODO: Dont hardcode the role
-CMD [ "/weaver-storage" ]
