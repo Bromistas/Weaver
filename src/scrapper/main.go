@@ -53,6 +53,19 @@ func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 	}
 }
 
+func healthCheckQueue(node *ScrapperNode) {
+	for {
+		queueService := NewQueueServiceClient(node.QueueAddress + ":" + strconv.Itoa(node.QueuePort))
+		_, err := queueService.HealthCheck()
+		if err != nil {
+			log.Println("Queue service health check failed. Rediscovering...")
+			discoverQueue(node, false)
+			queueService = NewQueueServiceClient(node.QueueAddress + ":" + strconv.Itoa(node.QueuePort))
+		}
+		time.Sleep(1 * time.Second) // Adjust the sleep duration as needed
+	}
+}
+
 func main() {
 	node := &ScrapperNode{}
 
@@ -61,8 +74,11 @@ func main() {
 
 	queueService := NewQueueServiceClient(node.QueueAddress + ":" + strconv.Itoa(node.QueuePort))
 
-	log.Printf("[*] Waiting for messages. To exit press CTRL+C")
+	time.Sleep(6 * time.Second)
+	go healthCheckQueue(node)
+	// TODO: DO healthcheck for storage as well
 
+	log.Printf("[*] Waiting for messages. To exit press CTRL+C")
 	err := queueService.Listen(time.Second, node)
 	if err != nil {
 		log.Panicf("[!] Error listening to queue: %s", err)

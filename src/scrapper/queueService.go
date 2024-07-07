@@ -68,11 +68,16 @@ func (q *QueueServiceClient) Pop() (common.Message, error) {
 		return common.Message{}, err
 	}
 
+	// Send ack
+	if err := q.Ack(result.ID); err != nil {
+		return common.Message{}, err
+	}
+
 	return result, nil
 }
 
 func (q *QueueServiceClient) Ack(id string) error {
-	url := fmt.Sprintf("%s/ack", q.baseURL)
+	url := fmt.Sprintf("http://%s/ack", q.baseURL)
 	body := map[string]string{"id": id}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
