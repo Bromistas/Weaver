@@ -58,7 +58,7 @@ func RegisterForDiscovery(serviceName, serviceType, domain string, port int, ip 
 	}
 	defer server.Shutdown()
 
-	log.Println("Service registered, waiting to exit...")
+	log.Println("[&] Service registered, waiting to exit...")
 	// Keep the service running
 	select {}
 

@@ -1,9 +1,17 @@
 package main
 
 import (
+	common "commons"
+	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/grandcat/zeroconf"
 	"log"
+	"net"
 	"net/http"
+	"node"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -30,11 +38,12 @@ func (q *Queue) Pop() (string, bool) {
 	return msg, true
 }
 
-func main() {
-	queue := &Queue{
-		messages: make([]string, 0),
-	}
+func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
+	log.Printf("[*] Node %s started", n.Address)
+	node.ServeChord(context.Background(), n, bootstrap, group, nil)
+}
 
+func setupServer(queue *Queue) {
 	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Message string `json:"message"`
@@ -71,7 +80,91 @@ func main() {
 		}
 		json.NewEncoder(w).Encode(response)
 	})
+}
 
-	log.Printf("[*] Listening to messages in port %d", 9000)
-	http.ListenAndServe(":9000", nil)
+func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, group *sync.WaitGroup) {
+
+	addr := strings.Split(address, ":")
+	port, _ := strconv.Atoi(addr[1])
+	ip := net.ParseIP(addr[0])
+
+	foundIp := ""
+	foundPort := 0
+	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+		if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+
+			if len(entry.AddrIPv4) == 0 {
+				log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
+				foundIp = "localhost"
+				foundPort = entry.Port
+			} else {
+				temp := entry.AddrIPv4[0].String()
+
+				if !strings.Contains(foundIp, "::") {
+					foundIp = temp
+					foundPort = entry.Port
+				}
+			}
+			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
+		}
+	}
+
+	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
+
+	if foundIp != "" {
+		log.Println("Found queue node, joining the ring")
+		other := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
+		go serveChordWrapper(n, other, group)
+	} else {
+		log.Println("No queue node found, starting a new ring")
+		go serveChordWrapper(n, nil, group)
+	}
+
+	//common.ThreadBroadListen(strconv.Itoa(port))
+	serviceName := "QueueNode"
+	serviceType := "_http._tcp"
+	domain := "local."
+
+	err := common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Duration, first bool) {
+	defer group.Done()
+
+	queue := &Queue{
+		messages: make([]string, 0),
+	}
+	n := node.NewChordNode(address, nil)
+
+	if first {
+		setupServer(queue)
+	}
+
+	go setupDiscovery(n, address, waitTime, group)
+
+	time.Sleep(7 * time.Second)
+
+	// Print predecessor of n
+	pred, _ := n.FindPredecessor(context.Background(), n)
+	fmt.Printf("Predecessor of %s is %s\n", n.Address, pred.Address)
+
+	// Listen and serve
+	// TODO: Change to use instead of localhost
+	log.Printf("[*] Listening to messages in port %d", port)
+	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+}
+
+func main() {
+	group := &sync.WaitGroup{}
+	group.Add(2)
+
+	go setupNode("127.0.0.1:9000", 9000, group, 1*time.Second, true)
+	//go setupNode("127.0.0.1:9001", 9001, group, 3*time.Second, false)
+	//go setupNode("127.0.0.1:9002", 9002, group, 5*time.Second, false)
+
+	// Wait indefinitely
+	group.Wait()
 }
