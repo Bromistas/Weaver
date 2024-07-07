@@ -19,7 +19,7 @@ const (
 type ChordNode struct {
 	Id          []byte
 	Address     string
-	PutCallback func(context.Context, *pb.Pair) error
+	PutCallback func(context.Context, *pb.Pair, *ChordNode) error
 }
 
 type ChordServer struct {
@@ -40,7 +40,7 @@ func (s *ChordServer) successor() *ChordNode {
 	}
 }
 
-func NewChordNode(addr string, callback func(context.Context, *pb.Pair) error) *ChordNode {
+func NewChordNode(addr string, callback func(context.Context, *pb.Pair, *ChordNode) error) *ChordNode {
 	return &ChordNode{
 		Id:          generate_chord_hash(addr),
 		Address:     addr,
@@ -48,7 +48,7 @@ func NewChordNode(addr string, callback func(context.Context, *pb.Pair) error) *
 	}
 }
 
-func NewChordServer(addr string, callback func(context.Context, *pb.Pair) error) *ChordServer {
+func NewChordServer(addr string, callback func(context.Context, *pb.Pair, *ChordNode) error) *ChordServer {
 	self := &ChordNode{
 		generate_chord_hash(addr),
 		addr,

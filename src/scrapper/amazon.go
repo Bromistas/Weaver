@@ -1,6 +1,7 @@
 package main
 
 import (
+	common "commons"
 	"encoding/json"
 	"fmt"
 	"github.com/gocolly/colly/v2"
@@ -17,7 +18,7 @@ func (s ScrapperNode) AmazonProductHandler(url string) {
 	// Send the product to the storage service
 
 	c := colly.NewCollector()
-	product := Product{}
+	product := common.Product{}
 
 	c.OnHTML("#productTitle", func(e *colly.HTMLElement) {
 		if strings.TrimSpace(e.Text) != "" {

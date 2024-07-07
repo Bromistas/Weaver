@@ -6,4 +6,5 @@ type Product struct {
 	URL         string  `json:"url"`
 	Description string  `json:"description"`
 	Rating      string  `json:"rating"`
+	NodeAuthor  string  `json:"node_author"`
 }

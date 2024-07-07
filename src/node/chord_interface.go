@@ -50,7 +50,7 @@ func (s *ChordServer) Put(ctx context.Context, in *pb.Pair) (*pb.Result, error) 
 		fmt.Printf("Key %v has been added to the storage \n", in.Key)
 
 		if s.self.PutCallback != nil {
-			err := s.self.PutCallback(ctx, in)
+			err := s.self.PutCallback(ctx, in, s.self)
 			if err != nil {
 				return nil, err
 			}

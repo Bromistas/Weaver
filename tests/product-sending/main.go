@@ -53,7 +53,7 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	urlMessage := URLMessage{
-		URL:     "https://www.amazon.com/Nespresso-Vertuoline-Seller-Assortment-Count/dp/B01N05APQY/ref=pd_bxgy_thbs_d_sccl_1/137-8101859-8760144?content-id=amzn1.sym.c51e3ad7-b551-4b1a-b43c-3cf69addb649",
+		URL:     "https://www.amazon.com/iPhone-Charger-Anker-AirPods-Included/dp/B0C8HHV9DK/?content-id=amzn1.sym.64be5821-f651-4b0b-8dd3-4f9b884f10e5",
 		URLType: AmazonProduct,
 	}
 

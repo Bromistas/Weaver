@@ -1,6 +1,7 @@
 package main
 
 import (
+	common "commons"
 	"context"
 	"encoding/json"
 	"github.com/gocolly/colly/v2"
@@ -37,7 +38,7 @@ func put_pair(addr, k, v string, group *sync.WaitGroup) {
 
 func NeweggProductHandler(url string) {
 	c := colly.NewCollector()
-	product := Product{}
+	product := common.Product{}
 
 	c.OnHTML(".product-title", func(e *colly.HTMLElement) {
 		product.Name = e.Text
@@ -54,7 +55,7 @@ func NeweggProductHandler(url string) {
 			log.Printf("Failed to parse price: %v", err)
 			return
 		}
-		product.Price = price
+		product.Price = float32(price)
 	})
 
 	c.OnHTML(".product-wrap .product-reviews .product-rating i", func(e *colly.HTMLElement) {
