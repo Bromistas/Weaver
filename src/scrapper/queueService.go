@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	common "commons"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,9 +12,10 @@ import (
 
 type QueueService interface {
 	Put(message string) error
-	Pop() (string, error)
+	Pop() (common.Message, error)
+	Ack(id string) error
 	HealthCheck() (string, error)
-	Listen(tickRate time.Duration) error
+	Listen(tickDuration time.Duration, node *ScrapperNode) error
 }
 
 type QueueServiceClient struct {
@@ -25,7 +27,7 @@ func NewQueueServiceClient(baseURL string) *QueueServiceClient {
 }
 
 func (q *QueueServiceClient) Put(message string) error {
-	url := fmt.Sprintf("%s/put", q.baseURL)
+	url := fmt.Sprintf("http://%s/put", q.baseURL)
 	body := map[string]string{"message": message}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
@@ -45,34 +47,59 @@ func (q *QueueServiceClient) Put(message string) error {
 	return nil
 }
 
-func (q *QueueServiceClient) Pop() (string, error) {
+func (q *QueueServiceClient) Pop() (common.Message, error) {
 	url := fmt.Sprintf("http://%s/pop", q.baseURL)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return common.Message{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNoContent {
-		return "", nil
+		return common.Message{}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return common.Message{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Message string `json:"message"`
-	}
+	var result common.Message
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
+		return common.Message{}, err
 	}
 
-	return result.Message, nil
+	return result, nil
+}
+
+func (q *QueueServiceClient) Ack(id string) error {
+	url := fmt.Sprintf("%s/ack", q.baseURL)
+	body := map[string]string{"id": id}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 func (q *QueueServiceClient) HealthCheck() (string, error) {
-	url := fmt.Sprintf("%s/healthcheck", q.baseURL)
+	url := fmt.Sprintf("http://%s/healthcheck", q.baseURL)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -94,8 +121,8 @@ func (q *QueueServiceClient) HealthCheck() (string, error) {
 	return fmt.Sprintf("Status: %s, Time: %s", result.Status, result.Time), nil
 }
 
-func (q *QueueServiceClient) Listen(tickRate time.Duration, node *ScrapperNode) error {
-	ticker := time.NewTicker(tickRate)
+func (q *QueueServiceClient) Listen(tickDuration time.Duration, node *ScrapperNode) error {
+	ticker := time.NewTicker(tickDuration)
 	defer ticker.Stop()
 
 	for {
@@ -105,8 +132,8 @@ func (q *QueueServiceClient) Listen(tickRate time.Duration, node *ScrapperNode) 
 			if err != nil {
 				return err
 			}
-			if message != "" {
-				messageHandler(node, message)
+			if message.Body != "" {
+				messageHandler(node, message.Body)
 			}
 		}
 	}

@@ -17,25 +17,72 @@ import (
 )
 
 type Queue struct {
-	messages []string
+	messages map[string]common.Message
+	order    []string
 	mu       sync.Mutex
+}
+
+func NewQueue() *Queue {
+	return &Queue{
+		messages: make(map[string]common.Message),
+		order:    make([]string, 0),
+	}
 }
 
 func (q *Queue) Put(message string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.messages = append(q.messages, message)
+
+	id := fmt.Sprintf("%d", time.Now().UnixNano())
+	msg := common.Message{
+		ID:      id,
+		Body:    message,
+		Visible: true,
+	}
+	q.messages[id] = msg
+	q.order = append(q.order, id)
 }
 
-func (q *Queue) Pop() (string, bool) {
+func (q *Queue) Pop() (common.Message, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if len(q.messages) == 0 {
-		return "", false
+
+	for _, id := range q.order {
+		msg := q.messages[id]
+		if msg.Visible {
+			msg.Visible = false
+			msg.Received = time.Now()
+			q.messages[id] = msg
+			return msg, true
+		}
 	}
-	msg := q.messages[0]
-	q.messages = q.messages[1:]
-	return msg, true
+	return common.Message{}, false
+}
+
+func (q *Queue) Ack(id string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	delete(q.messages, id)
+	for i, msgID := range q.order {
+		if msgID == id {
+			q.order = append(q.order[:i], q.order[i+1:]...)
+			break
+		}
+	}
+}
+
+func (q *Queue) RequeueInvisibleMessages(timeout time.Duration) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	now := time.Now()
+	for id, msg := range q.messages {
+		if !msg.Visible && now.Sub(msg.Received) > timeout {
+			msg.Visible = true
+			q.messages[id] = msg
+		}
+	}
 }
 
 func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
@@ -43,43 +90,68 @@ func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	node.ServeChord(context.Background(), n, bootstrap, group, nil)
 }
 
+var (
+	q = NewQueue()
+)
+
+func putHandler(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	q.Put(body.Message)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func popHandler(w http.ResponseWriter, r *http.Request) {
+	message, ok := q.Pop()
+	if !ok {
+		http.Error(w, "Queue is empty", http.StatusNoContent)
+		return
+	}
+	json.NewEncoder(w).Encode(message)
+}
+
+func ackHandler(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	q.Ack(body.ID)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	response := struct {
+		Status string `json:"status"`
+		Time   string `json:"time"`
+	}{
+		Status: "healthy",
+		Time:   time.Now().Format(time.RFC3339),
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+func requeueInvisibleMessages() {
+	for {
+		time.Sleep(10 * time.Second)
+		q.RequeueInvisibleMessages(30 * time.Second)
+	}
+}
+
 func setupServer(queue *Queue) {
-	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Message string `json:"message"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, "Invalid request payload", http.StatusBadRequest)
-			return
-		}
-		queue.Put(body.Message)
-		w.WriteHeader(http.StatusNoContent)
-	})
+	go requeueInvisibleMessages()
 
-	http.HandleFunc("/pop", func(w http.ResponseWriter, r *http.Request) {
-		msg, ok := queue.Pop()
-		if !ok {
-			http.Error(w, "Queue is empty", http.StatusNoContent)
-			return
-		}
-		response := struct {
-			Message string `json:"message"`
-		}{
-			Message: msg,
-		}
-		json.NewEncoder(w).Encode(response)
-	})
-
-	http.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
-		response := struct {
-			Status string `json:"status"`
-			Time   string `json:"time"`
-		}{
-			Status: "healthy",
-			Time:   time.Now().Format(time.RFC3339),
-		}
-		json.NewEncoder(w).Encode(response)
-	})
+	http.HandleFunc("/put", putHandler)
+	http.HandleFunc("/pop", popHandler)
+	http.HandleFunc("/ack", ackHandler)
+	http.HandleFunc("/healthcheck", healthCheckHandler)
 }
 
 func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, group *sync.WaitGroup) {
@@ -134,22 +206,19 @@ func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, g
 func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Duration, first bool) {
 	defer group.Done()
 
-	queue := &Queue{
-		messages: make([]string, 0),
-	}
 	n := node.NewChordNode(address, nil)
 
 	if first {
-		setupServer(queue)
+		setupServer(q)
 	}
 
 	go setupDiscovery(n, address, waitTime, group)
 
-	time.Sleep(7 * time.Second)
+	// time.Sleep(7 * time.Second)
 
 	// Print predecessor of n
-	pred, _ := n.FindPredecessor(context.Background(), n)
-	fmt.Printf("Predecessor of %s is %s\n", n.Address, pred.Address)
+	//pred, _ := n.FindPredecessor(context.Background(), n)
+	//fmt.Printf("Predecessor of %s is %s\n", n.Address, pred.Address)
 
 	// Listen and serve
 	// TODO: Change to use instead of localhost
