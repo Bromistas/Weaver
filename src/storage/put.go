@@ -20,28 +20,8 @@ func CustomPut(ctx context.Context, pair *pb.Pair, node *node.ChordNode) error {
 		return err
 	}
 
-	if product.NodeAuthor == "" /* Then the product is not yet assigned to a node */ {
+	if product.NodeAuthor == "" {
 		product.NodeAuthor = node.Address
-
-		// Find the successor and replicate the product to the successor
-
-		// TODO: Replication on insertion
-		//next := TakeBytesAndAdd1(node.Id)
-		//successor, err := node.FindSuccessor(ctx, next)
-		//if err != nil {
-		//	log.Fatalf("Failed to find successor: %v", err)
-		//	return err
-		//}
-		//
-		//if successor.Address != node.Address {
-		//	// Replicate the product to the successor
-		//	_, err = node.Put(ctx, &pb.Pair{Key: pair.Key, Value: pair.Value})
-		//	if err != nil {
-		//		log.Fatalf("Failed to replicate product: %v", err)
-		//		return err
-		//	}
-		//}
-
 	}
 
 	// Write the Product object to a JSON file

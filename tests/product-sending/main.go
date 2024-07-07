@@ -53,7 +53,7 @@ func main() {
 	failOnError(err, "Failed to declare a queue")
 
 	urlMessage := URLMessage{
-		URL:     "https://www.amazon.com/iPhone-Charger-Anker-AirPods-Included/dp/B0C8HHV9DK/?content-id=amzn1.sym.64be5821-f651-4b0b-8dd3-4f9b884f10e5",
+		URL:     "https://primeng.org/installation",
 		URLType: AmazonProduct,
 	}
 

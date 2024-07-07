@@ -4,10 +4,9 @@ import (
 	common "commons"
 	"encoding/json"
 	"fmt"
-	"github.com/gocolly/colly/v2"
 	"log"
+	"math/rand"
 	"strconv"
-	"strings"
 	"sync"
 )
 
@@ -17,24 +16,25 @@ func (s ScrapperNode) AmazonProductHandler(url string) {
 	// Scrap and create a product with name, price and rating
 	// Send the product to the storage service
 
-	c := colly.NewCollector()
+	//c := colly.NewCollector()
 	product := common.Product{}
+	//
+	//c.OnHTML("#productTitle", func(e *colly.HTMLElement) {
+	//	if strings.TrimSpace(e.Text) != "" {
+	//		product.Name = strings.TrimSpace(e.Text)
+	//	}
+	//})
 
-	c.OnHTML("#productTitle", func(e *colly.HTMLElement) {
-		if strings.TrimSpace(e.Text) != "" {
-			product.Name = strings.TrimSpace(e.Text)
-		}
-	})
-
+	product.Name = strconv.Itoa(rand.Int())
 	product.Price = 12.31
 	product.Rating = "4.5"
 	product.Description = "This is a description"
 	product.URL = url
 
-	err := c.Visit(url)
-	if err != nil {
-		log.Fatal(err)
-	}
+	//err := c.Visit(url)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	body, err := json.Marshal(product)
 	if err != nil {

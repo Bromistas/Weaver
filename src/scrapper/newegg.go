@@ -34,6 +34,7 @@ func put_pair(addr, k, v string, group *sync.WaitGroup) {
 	if err != nil {
 		log.Fatalf("could not put to %v: %v", addr, err)
 	}
+
 }
 
 func NeweggProductHandler(url string) {
