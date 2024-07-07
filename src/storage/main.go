@@ -96,8 +96,7 @@ func main() {
 
 	group.Add(3)
 	go mainWrapper(group, "127.0.0.1:50051", 50051, 1)
-	go mainWrapper(group, "127.0.0.1:50052", 50052, 5)
-	//go mainWrapper(group, "127.0.0.1:50053", 50053, 20*time.Second)
+	go mainWrapper(group, "127.0.0.1:50052", 50052, 3)
 
 	group.Wait()
 }

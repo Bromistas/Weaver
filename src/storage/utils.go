@@ -47,7 +47,7 @@ func CheckIps() (net.IP, error) {
 	return ip, nil
 }
 
-func TakeBytesAndAdd1(b []byte) []byte {
+func TakeBytesAndTake1(b []byte) []byte {
 	hexa := hex.EncodeToString(b)
 	parseInt, err := strconv.ParseInt(hexa, 16, 64)
 
@@ -55,7 +55,7 @@ func TakeBytesAndAdd1(b []byte) []byte {
 		log.Fatalf("Failed to parse int: %v", err)
 	}
 
-	parseInt = parseInt + 1
+	parseInt = parseInt - 1
 	hexa = strconv.FormatInt(parseInt, 16)
 
 	return []byte(hexa)

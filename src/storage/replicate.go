@@ -14,7 +14,7 @@ import (
 )
 
 func ReplicateData(ctx context.Context, n *node.ChordNode, interval time.Duration) {
-	var lastSuccessor *node.ChordNode = nil
+	var lastPredecessor *node.ChordNode = nil
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -22,18 +22,19 @@ func ReplicateData(ctx context.Context, n *node.ChordNode, interval time.Duratio
 	for range ticker.C {
 
 		// Find the successor of the node
-		next := TakeBytesAndAdd1(n.Id)
-		successor, err := n.FindSuccessor(ctx, next)
+		predecessor, err := n.FindPredecessor(ctx, n)
 
 		if err != nil {
 			log.Fatalf("Failed to find successor: %v", err)
 		}
 
-		if successor == nil {
+		if predecessor == nil {
 			continue
 		}
 
-		if lastSuccessor == nil || successor.Address != lastSuccessor.Address {
+		if lastPredecessor == nil || predecessor.Address != lastPredecessor.Address {
+
+			log.Printf("Identified different predecessor with predecessor %v, last predecessor %v, node address %v\n", predecessor, lastPredecessor, n.Address)
 
 			files, err := ioutil.ReadDir("./" + n.Address)
 			if err != nil {
@@ -58,29 +59,28 @@ func ReplicateData(ctx context.Context, n *node.ChordNode, interval time.Duratio
 						continue
 					}
 
-					// Get successor Id
+					// Get predecessor Id
 
-					// Use the successor's ID as the key
+					// Use the predecessor's ID as the key
+					next := TakeBytesAndTake1(predecessor.Id)
+
 					pair := &pb.Pair{
 						Key:   hex.EncodeToString(next),
 						Value: string(data),
 					}
 
 					ctx := context.Background()
-					_, err = successor.Put(ctx, pair)
+					_, err = predecessor.Put(ctx, pair)
 					if err != nil {
 						log.Fatal(err)
 					}
 
 					// Log replicated data
-					log.Printf("Replicated data with successor %v, last successor %v, node address %v\n", successor, lastSuccessor, n.Address)
+					log.Printf("Replicated data with predecessor %v, last predecessor %v, node address %v\n", predecessor, lastPredecessor, n.Address)
 				}
 			}
 
-			// Log replicated data with successor, last successor and node address
-			log.Printf("Identified different successor with successor %v, last successor %v, node address %v\n", successor, lastSuccessor, n.Address)
-
-			lastSuccessor = successor
+			lastPredecessor = predecessor
 		}
 	}
 }
