@@ -2,11 +2,9 @@ package main
 
 import (
 	common "commons"
-	"encoding/json"
 	"github.com/grandcat/zeroconf"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,77 +15,30 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	node := &ScrapperNode{}
-
-	q, err := ch.QueueDeclare(
-		"scrap", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	failOnError(err, "Failed to register a consumer")
-
-	//exch := "products"
-
-	var forever chan struct{}
-
-	go func() {
-		for d := range msgs {
-			var urlMessage URLMessage
-
-			// Log message
-			log.Printf("Received a message: %s", d.Body)
-
-			err := json.Unmarshal(d.Body, &urlMessage)
-			if err != nil {
-				log.Fatal(err)
+func discoverQueue(node *ScrapperNode, panicOnFail bool) {
+	discoverQueueCallback := func(entry *zeroconf.ServiceEntry) {
+		if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+			if len(entry.AddrIPv4) == 0 {
+				log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
+				node.QueueAddress = "localhost"
+				node.QueuePort = entry.Port
 			}
-
-			switch urlMessage.URLType {
-			case AmazonProduct:
-				node.AmazonProductHandler(urlMessage.URL)
-			case NeweggProduct:
-				NeweggProductHandler(urlMessage.URL)
-			case NeweggRoot:
-				NeweggRootHandler(urlMessage.URL, ch, q)
-			default:
-				log.Printf("Unknown URL type: %v", urlMessage.URLType)
-			}
+			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
 		}
-	}()
+	}
 
-	go func() {
-		log.Fatal(http.ListenAndServe(":8080", nil))
-	}()
+	common.Discover("_http._tcp", "local.", 5*time.Second, discoverQueueCallback)
 
-	// Make a discovery and listen for services
+	if panicOnFail && (node.QueueAddress == "" || node.QueuePort == 0) {
+		log.Panicf("Failed to discover Queue service")
+	}
+}
 
+func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
 		if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
 			if len(entry.AddrIPv4) == 0 {
-				log.Printf("Found service: %s, but no IP address", entry.ServiceInstanceName(), ". Going localhost")
+				log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
 				node.StorageAddress = "localhost"
 				node.StoragePort = entry.Port
 			}
@@ -97,6 +48,24 @@ func main() {
 
 	common.Discover("_http._tcp", "local.", 5*time.Second, discoveryCallback)
 
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	<-forever
+	if panicOnFail && (node.StorageAddress == "" || node.StoragePort == 0) {
+		log.Panicf("Failed to discover Storage service")
+	}
+}
+
+func main() {
+	node := &ScrapperNode{}
+
+	discoverQueue(node, true)
+	discoverStorage(node, true)
+
+	queueService := NewQueueServiceClient(node.QueueAddress + ":" + strconv.Itoa(node.QueuePort))
+
+	log.Printf("[*] Waiting for messages. To exit press CTRL+C")
+
+	err := queueService.Listen(time.Second, node)
+	if err != nil {
+		log.Panicf("[!] Error listening to queue: %s", err)
+	}
+
 }

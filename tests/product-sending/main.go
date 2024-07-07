@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"fmt"
 	"log"
+	"net/http"
 )
 
 type Product struct {
@@ -34,42 +36,22 @@ const (
 )
 
 func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		"scrap", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-
-	urlMessage := URLMessage{
-		URL:     "https://primeng.org/installation",
-		URLType: AmazonProduct,
+	message := "https://primeng.org/installation"
+	baseUrl := "http://localhost:9000"
+	url := fmt.Sprintf("%s/put", baseUrl)
+	body := map[string]string{"message": message}
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		panic(err)
 	}
 
-	body, err := json.Marshal(urlMessage)
-	failOnError(err, "Failed to encode product into JSON")
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
 
-	err = ch.Publish(
-		"",     // exchange
-		q.Name, // routing key
-		false,  // mandatory
-		false,  // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		})
-	failOnError(err, "Failed to publish a message")
-
-	log.Printf(" [x] Sent %s", body)
+	if resp.StatusCode != http.StatusNoContent {
+		panic(err)
+	}
 }
