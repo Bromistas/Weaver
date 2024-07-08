@@ -3,12 +3,15 @@ package main
 import (
 	"commons"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/grandcat/zeroconf"
 	"log"
 	"net"
+	"net/http"
 	"node"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,15 +84,34 @@ func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.
 	serviceType := "_http._tcp"
 	domain := "local."
 
+	log.Printf("[*] Starting http server on port %d", port)
+	go http.ListenAndServe(":"+strconv.Itoa(port), nil)
+
 	err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
 	if err != nil {
 		log.Fatalln(err)
 	}
 }
 
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	response := struct {
+		Status string `json:"status"`
+		Time   string `json:"time"`
+	}{
+		Status: "healthy",
+		Time:   time.Now().Format(time.RFC3339),
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+func setupServer() {
+	http.HandleFunc("/healthcheck", healthCheckHandler)
+}
+
 func main() {
 	group := &sync.WaitGroup{}
 
+	setupServer()
 	//os.Setenv("ADDRESS", "127.0.0.1:50051")
 	//os.Setenv("PORT", "50051")
 	//os.Setenv("WAIT_TIME", "2s")
