@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"node"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -63,7 +64,7 @@ func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.
 		}
 	}
 
-	common.Discover("_http._tcp", "local.", waitTime*time.Second, discoveryCallback)
+	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
 
 	if found_ip != "" {
 
@@ -108,16 +109,31 @@ func setupServer() {
 }
 
 func main() {
+	if len(os.Args) != 4 {
+		fmt.Println("Usage: program <address> <port> <waitTime>")
+		os.Exit(1)
+	}
+
+	address := os.Args[1]
+	portStr := os.Args[2]
+	waitTimeStr := os.Args[3]
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("Invalid port: %v", err)
+	}
+
+	waitTime, err := time.ParseDuration(waitTimeStr)
+	if err != nil {
+		log.Fatalf("Invalid wait time: %v", err)
+	}
+
 	group := &sync.WaitGroup{}
 
 	setupServer()
-	//os.Setenv("ADDRESS", "127.0.0.1:50051")
-	//os.Setenv("PORT", "50051")
-	//os.Setenv("WAIT_TIME", "2s")
 
-	group.Add(3)
-	go mainWrapper(group, "127.0.0.1:50051", 50051, 1)
-	//go mainWrapper(group, "127.0.0.1:50052", 50052, 3)
+	group.Add(1)
+	go mainWrapper(group, address, port, waitTime)
 
 	group.Wait()
 }
