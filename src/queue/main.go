@@ -17,9 +17,11 @@ import (
 )
 
 type Queue struct {
-	messages map[string]common.Message
-	order    []string
-	mu       sync.Mutex
+	addr       string
+	leaderAddr string
+	messages   map[string]common.Message
+	order      []string
+	mu         sync.Mutex
 }
 
 func NewQueue() *Queue {
@@ -93,6 +95,52 @@ func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 var (
 	q = NewQueue()
 )
+
+// Create a function that will constantly ping the leaderAddr for healthchecks and when failed it will change its leader to be the element in the ring with the lowest id
+func (q *Queue) leaderAttention() {
+	for {
+
+		// Create a healthcheck for q.leaderAddr
+		url := fmt.Sprintf("http://%s/healthcheck", q.leaderAddr)
+		resp, err := http.Get(url)
+		if err != nil {
+			q.changeLeader(3 * time.Second)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			q.changeLeader(3 * time.Second)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func (q *Queue) changeLeader(waitTime time.Duration) {
+	foundIp := ""
+	foundPort := 0
+
+	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+		if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+			if len(entry.AddrIPv4) > 0 {
+				currentIp := entry.AddrIPv4[0].String()
+				if foundIp == "" || currentIp < foundIp {
+					foundIp = currentIp
+					foundPort = entry.Port
+					log.Printf("New leader found: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), foundIp, foundPort)
+				}
+			} else {
+				log.Printf("Found service: %s, but no IP address. Ignoring.", entry.ServiceInstanceName())
+			}
+		}
+	}
+
+	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
+
+	finalLeader := fmt.Sprintf("%s:%s", foundIp, strconv.Itoa(foundPort))
+	q.leaderAddr = finalLeader
+	log.Printf("Final leader for node %s is: %s", q.addr, finalLeader)
+}
 
 func putHandler(w http.ResponseWriter, r *http.Request) {
 	var body struct {
