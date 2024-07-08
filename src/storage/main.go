@@ -11,16 +11,27 @@ import (
 	"net/http"
 	"node"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
+var (
+	addr string
+)
+
 func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
 	log.Printf("[*] Node %s started", n.Address)
-	//go ReplicateData(context.Background(), n, 5*time.Second)
-	node.ServeChord(context.Background(), n, bootstrap, group, nil)
+	go ReplicateData(context.Background(), n, 5*time.Second)
+
+	// Create your HTTP server
+	httpServer := &http.Server{
+		Handler: http.HandlerFunc(replicateHandler),
+	}
+
+	node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
 }
 
 func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.Duration) {
@@ -66,6 +77,24 @@ func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.
 
 	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
 
+	//l, err := net.Listen("tcp", address)
+	//m := cmux.New(l)
+
+	//httpL := m.Match(cmux.HTTP1Fast())
+	//
+	//// Create your HTTP server
+	//httpServer := &http.Server{
+	//	Handler: http.HandlerFunc(replicateHandler),
+	//}
+
+	// Start the HTTP server in a goroutine
+	//go func() {
+	//	log.Printf("[*] Starting HTTP server on :%d", port)
+	//	if err := httpServer.Serve(httpL); err != nil && err != http.ErrServerClosed {
+	//		log.Fatalf("HTTP server failed: %v", err)
+	//	}
+	//}()
+
 	if found_ip != "" {
 
 		//found_ip = strings.Split(chordAddr, ":")[0]
@@ -104,8 +133,47 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func replicateHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST method
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read and parse the JSON payload
+	var payload common.Product
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	// Generate a filename based on the current timestamp
+	filename := fmt.Sprintf("%s.json", payload.Name)
+	filepath := filepath.Join(addr, filename)
+
+	// Convert the payload to JSON
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Write the JSON content to the file
+	err = os.WriteFile(filepath, data, 0644)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond to the client
+	w.WriteHeader(http.StatusCreated)
+	fmt.Fprintf(w, "File created successfully: %s\n", filename)
+}
+
 func setupServer() {
 	http.HandleFunc("/healthcheck", healthCheckHandler)
+	http.HandleFunc("/replicate", replicateHandler)
 }
 
 func main() {
@@ -113,6 +181,8 @@ func main() {
 		fmt.Println("Usage: program <address> <port> <waitTime>")
 		os.Exit(1)
 	}
+
+	addr = os.Args[1]
 
 	address := os.Args[1]
 	portStr := os.Args[2]

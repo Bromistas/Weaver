@@ -7,4 +7,5 @@ type Product struct {
 	Description string  `json:"description"`
 	Rating      string  `json:"rating"`
 	NodeAuthor  string  `json:"node_author"`
+	Replicated  bool    `json:"replicated"`
 }

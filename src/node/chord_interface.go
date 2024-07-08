@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"net"
+	"net/http"
 	pb "protos"
 	"sync"
 	"time"
@@ -138,16 +140,35 @@ func (n *ChordNode) Del(ctx context.Context, in *pb.Key) (*pb.Result, error) {
 	return result, nil
 }
 
-func ServeChord(ctx context.Context, node *ChordNode, bootstrap_node *ChordNode, group *sync.WaitGroup, join *sync.WaitGroup) {
+func ServeChord(ctx context.Context, node *ChordNode, bootstrap_node *ChordNode, group *sync.WaitGroup, join *sync.WaitGroup, httpServer *http.Server) {
 	// setup logger
 	logger := log.WithFields(log.Fields{"from": "serve", "id": fmt.Sprintf("%X", node.Id)})
 	defer group.Done()
+
 	// setup Chord instances
 	server := NewChordServer(node.Address, node.PutCallback)
 	lis, err := net.Listen("tcp", node.Address)
 	if err != nil {
 		logger.Fatalf("failed to listen: %v", err)
 	}
+
+	// Create a cmux instance
+	m := cmux.New(lis)
+
+	// Match connections in HTTP1.1 header field
+	httpL := m.Match(cmux.HTTP1Fast())
+
+	// Start the HTTP server in a goroutine
+	go func() {
+		log.Println("Starting HTTP server")
+		if err := httpServer.Serve(httpL); err != nil && err != http.ErrServerClosed {
+			logger.Fatalf("HTTP server failed: %v", err)
+		}
+	}()
+
+	// Match connections in HTTP2 (gRPC) header field
+	grpcL := m.Match(cmux.HTTP2())
+
 	// setup gRPC
 	s := grpc.NewServer()
 	pb.RegisterChordServer(s, server)
@@ -161,7 +182,8 @@ func ServeChord(ctx context.Context, node *ChordNode, bootstrap_node *ChordNode,
 
 	// handle RPCs
 	go func() {
-		if err := s.Serve(lis); err != nil {
+		log.Println("Starting gRPC server")
+		if err := s.Serve(grpcL); err != nil {
 			logger.Fatalf("failed to serve: %v", err)
 		}
 		ch <- true
@@ -189,6 +211,14 @@ func ServeChord(ctx context.Context, node *ChordNode, bootstrap_node *ChordNode,
 	if bootstrap_node != nil {
 		fmt.Printf("Node %v has joined the network %v \n", node.Address, bootstrap_node.Address)
 	}
+
+	// Start cmux server
+	go func() {
+		log.Println("Starting cmux server")
+		if err := m.Serve(); err != nil {
+			logger.Fatalf("cmux server failed: %v", err)
+		}
+	}()
 
 	// stop listening if context is done
 	select {
