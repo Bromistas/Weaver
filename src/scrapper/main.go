@@ -90,7 +90,7 @@ func main() {
 
 	time.Sleep(6 * time.Second)
 	go healthCheckQueue(node)
-	go healthCheckStorage(node)
+	//go healthCheckStorage(node)
 
 	log.Printf("[*] Waiting for messages. To exit press CTRL+C")
 	err := queueService.Listen(time.Second, node)

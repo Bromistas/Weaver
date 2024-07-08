@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"node"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +18,7 @@ import (
 
 func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
 	log.Printf("[*] Node %s started", n.Address)
-	go ReplicateData(context.Background(), n, 5*time.Second)
+	//go ReplicateData(context.Background(), n, 5*time.Second)
 	node.ServeChord(context.Background(), n, bootstrap, group, nil)
 }
 
@@ -84,8 +83,8 @@ func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.
 	serviceType := "_http._tcp"
 	domain := "local."
 
-	log.Printf("[*] Starting http server on port %d", port)
-	go http.ListenAndServe(":"+strconv.Itoa(port), nil)
+	//log.Printf("[*] Starting http server on port %d", port)
+	//go http.ListenAndServe(":"+strconv.Itoa(port), nil)
 
 	err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
 	if err != nil {
