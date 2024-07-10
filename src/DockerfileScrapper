@@ -25,18 +25,14 @@ RUN go mod download
 # Copy the entire workspace into the container
 COPY . .
 
-ARG PROJECT
-ENV PROJECT=${PROJECT}
-
-ENV PROJECT_NAME=${PROJECT}
 
 # Set the working directory to the specified project
-WORKDIR /app/storage
+WORKDIR /app/scrapper
 
 # Build the Go app
-RUN go build -o /storage
+RUN go build -o /scrapper
 
 # Set the entry point to the built binary
-CMD ["/storage"]
+CMD ["/scrapper"]
 
 EXPOSE 50051

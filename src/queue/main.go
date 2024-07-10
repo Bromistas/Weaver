@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"github.com/grandcat/zeroconf"
 	"log"
-	"net"
 	"net/http"
 	"node"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -216,34 +216,47 @@ func setupServer(queue *Queue) {
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 }
 
-func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, group *sync.WaitGroup) {
+func setupDiscovery(n *node.ChordNode, group *sync.WaitGroup) {
 
-	addr := strings.Split(address, ":")
-	port, _ := strconv.Atoi(addr[1])
-	ip := net.ParseIP(addr[0])
+	address, err := common.GetHostIPV1()
+	if err != nil {
+		log.Fatalf("Failed to get host IP: %v", err)
+	}
+
+	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	role := os.Getenv("ROLE")
+	address += ":" + strconv.Itoa(port)
+
+	//addr := strings.Split(address, ":")
+	//port, _ := strconv.Atoi(addr[1])
+	//ip := net.ParseIP(addr[0])
 
 	foundIp := ""
 	foundPort := 0
-	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
-		if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+	//
+	//		if len(entry.AddrIPv4) == 0 {
+	//			log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
+	//			foundIp = "localhost"
+	//			foundPort = entry.Port
+	//		} else {
+	//			temp := entry.AddrIPv4[0].String()
+	//
+	//			if !strings.Contains(foundIp, "::") {
+	//				foundIp = temp
+	//				foundPort = entry.Port
+	//			}
+	//		}
+	//		log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
+	//	}
+	//}
 
-			if len(entry.AddrIPv4) == 0 {
-				log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
-				foundIp = "localhost"
-				foundPort = entry.Port
-			} else {
-				temp := entry.AddrIPv4[0].String()
+	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
 
-				if !strings.Contains(foundIp, "::") {
-					foundIp = temp
-					foundPort = entry.Port
-				}
-			}
-			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
-		}
-	}
-
-	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
+	discovered, _, err := common.NetDiscover(strconv.Itoa(port), role)
+	foundIp = discovered
+	foundPort = port
 
 	if foundIp != "" {
 		log.Println("Found queue node, joining the ring")
@@ -254,15 +267,15 @@ func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, g
 		go serveChordWrapper(n, nil, group, port)
 	}
 
-	//common.ThreadBroadListen(strconv.Itoa(port))
-	serviceName := "QueueNode"
-	serviceType := "_http._tcp"
-	domain := "local."
-
-	err := common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	common.ThreadBroadListen(strconv.Itoa(port), role)
+	//serviceName := "QueueNode"
+	//serviceType := "_http._tcp"
+	//domain := "local."
+	//
+	//err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
 }
 
 func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Duration, first bool) {
@@ -274,7 +287,7 @@ func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Du
 		setupServer(q)
 	}
 
-	go setupDiscovery(n, address, waitTime, group)
+	go setupDiscovery(n, group)
 }
 
 func main() {

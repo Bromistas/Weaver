@@ -81,7 +81,7 @@ func mainWrapper(group *sync.WaitGroup) {
 	//}
 
 	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
-	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
+	discovered, _, err := common.NetDiscover(strconv.Itoa(port), role)
 	found_ip = discovered
 	found_port = port
 
