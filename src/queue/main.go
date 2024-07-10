@@ -87,9 +87,23 @@ func (q *Queue) RequeueInvisibleMessages(timeout time.Duration) {
 	}
 }
 
-func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
+func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup, port int) {
 	log.Printf("[*] Node %s started", n.Address)
-	node.ServeChord(context.Background(), n, bootstrap, group, nil)
+
+	mux := http.NewServeMux()
+	// Register handlers
+	mux.HandleFunc("/put", putHandler)
+	mux.HandleFunc("/pop", popHandler)
+	mux.HandleFunc("/ack", ackHandler)
+	mux.HandleFunc("/healthcheck", healthCheckHandler)
+
+	// Create an http.Server
+	server := &http.Server{
+		Addr:    "0.0.0.0:" + strconv.Itoa(port), // or any other port
+		Handler: mux,
+	}
+
+	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
 }
 
 var (
@@ -234,10 +248,10 @@ func setupDiscovery(n *node.ChordNode, address string, waitTime time.Duration, g
 	if foundIp != "" {
 		log.Println("Found queue node, joining the ring")
 		other := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
-		go serveChordWrapper(n, other, group)
+		go serveChordWrapper(n, other, group, port)
 	} else {
 		log.Println("No queue node found, starting a new ring")
-		go serveChordWrapper(n, nil, group)
+		go serveChordWrapper(n, nil, group, port)
 	}
 
 	//common.ThreadBroadListen(strconv.Itoa(port))
@@ -261,17 +275,6 @@ func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Du
 	}
 
 	go setupDiscovery(n, address, waitTime, group)
-
-	// time.Sleep(7 * time.Second)
-
-	// Print predecessor of n
-	//pred, _ := n.FindPredecessor(context.Background(), n)
-	//fmt.Printf("Predecessor of %s is %s\n", n.Address, pred.Address)
-
-	// Listen and serve
-	// TODO: Change to use instead of localhost
-	log.Printf("[*] Listening to messages in port %d", port)
-	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
 func main() {

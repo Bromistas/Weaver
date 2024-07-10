@@ -126,17 +126,6 @@ func replicateOnPredChange(ctx context.Context, n *node.ChordNode, predecessor *
 				return
 			}
 
-			//next := TakeBytesAndTake1(predecessor.Id)
-			//pair := &pb.Pair{
-			//	Key:   hex.EncodeToString(next),
-			//	Value: string(data),
-			//}
-			//
-			//_, err = predecessor.Put(ctx, pair)
-			//if err != nil {
-			//	log.Fatal(err)
-			//}
-
 			// Log replicated data
 			log.Printf("Replicated data with predecessor %v, node address %v\n", predecessor.Address, n.Address)
 		}
