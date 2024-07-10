@@ -11,7 +11,7 @@ import (
 
 // NetDiscover discovers the service by broadcasting a message and waiting for a response.
 // It accepts a port and a timeout in seconds as parameters.
-func NetDiscover(port string) (string, error) {
+func NetDiscover(port string, role string) (string, error) {
 	timeOut := 10000
 
 	num, _ := strconv.Atoi(port)
@@ -43,21 +43,21 @@ func NetDiscover(port string) (string, error) {
 			continue
 		}
 
-		if string(buffer[:n]) == "I am a chord" {
+		if string(buffer[:n]) == fmt.Sprintf("I am a %s chord", role) {
 			ip := strings.Split(addr.String(), ":")[0]
-			log.Infof("Discover a chord in %s", ip)
+			log.Infof("Discover a chord of role %s in %s", role, ip)
 			return ip, nil
 		}
 	}
 
-	log.Info("Not found a chord")
+	log.Infof("Not found a chord of role %s", role)
 
 	return "", nil
 
 }
 
 // ThreadBroadListen listens for broadcast messages on the specified port.
-func ThreadBroadListen(port string) {
+func ThreadBroadListen(port string, role string) {
 	conn, err := net.ListenPacket("udp4", fmt.Sprintf(":%s", port))
 	if err != nil {
 		log.Error("Error to running udp server")
@@ -78,7 +78,7 @@ func ThreadBroadListen(port string) {
 		log.Infof("Message receive from %s: %s\n", clientAddr, message)
 
 		if message == "Are you a chord?" {
-			response := []byte("I am a chord")
+			response := []byte(fmt.Sprintf("I am a %s chord", role))
 			conn.WriteTo(response, clientAddr)
 		}
 

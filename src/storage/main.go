@@ -81,7 +81,7 @@ func mainWrapper(group *sync.WaitGroup) {
 	//}
 
 	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
-	discovered, err := common.NetDiscover(strconv.Itoa(port))
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
 	found_ip = discovered
 	found_port = port
 
@@ -98,7 +98,7 @@ func mainWrapper(group *sync.WaitGroup) {
 		go ServeChordWrapper(node1, nil, group)
 	}
 
-	common.ThreadBroadListen(strconv.Itoa(port))
+	common.ThreadBroadListen(strconv.Itoa(port), role)
 	//serviceName := "StorageNode"
 	//serviceType := "_http._tcp"
 	//domain := "local."
