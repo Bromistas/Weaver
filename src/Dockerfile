@@ -17,6 +17,7 @@ COPY protos/go.mod protos/go.sum ./protos/
 COPY scrapper/go.mod scrapper/go.sum ./scrapper/
 COPY rpc_node/go.mod ./rpc_node/
 COPY storage/go.mod ./storage/
+COPY queue/go.mod ./queue/
 
 # Download all the dependencies
 RUN go mod download

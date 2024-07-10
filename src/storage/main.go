@@ -5,15 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/grandcat/zeroconf"
 	"log"
-	"net"
 	"net/http"
 	"node"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -34,66 +31,59 @@ func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
 }
 
-func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.Duration) {
+func mainWrapper(group *sync.WaitGroup) {
 	defer group.Done()
 
-	ip := net.ParseIP("127.0.0.1")
+	//ip := net.ParseIP("127.0.0.1")
 	//ip, _ := CheckIps()
 	//ip := net.ParseIP("127.0.0.1")
 
-	//address := os.Getenv("ADDRESS")
-	//address := ip.String() + ":" + os.Getenv("PORT")
-	//port, _ := strconv.Atoi(os.Getenv("PORT"))
+	address, err := common.GetHostIPV1()
+	if err != nil {
+		log.Fatalf("Failed to get host IP: %v", err)
+	}
+
+	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	role := os.Getenv("ROLE")
+	address += ":" + strconv.Itoa(port)
+
+	log.Println("Port: ", port)
 	//waitTime, _ := time.ParseDuration(os.Getenv("WAIT_TIME"))
+	//address := ip.String() + ":" + os.Getenv("PORT")
 
 	node1 := node.NewChordNode(address, CustomPut)
 
 	// Create a directory this the address name if it doesnt exist already
-	err := os.Mkdir(address, os.ModePerm)
+	err = os.Mkdir(address, os.ModePerm)
 	if err != nil {
 		log.Printf("Error creating directory: %v", err)
 	}
 
 	found_ip := ""
 	found_port := 0
-	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
-		if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
-
-			if len(entry.AddrIPv4) == 0 {
-				log.Printf("Found service: %s, but no IP address", entry.ServiceInstanceName(), ". Going localhost")
-				found_ip = "localhost"
-				found_port = entry.Port
-			} else {
-				temp := entry.AddrIPv4[0].String()
-
-				if !strings.Contains(found_ip, "::") {
-					found_ip = temp
-					found_port = entry.Port
-				}
-			}
-			log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
-		}
-	}
-
-	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
-
-	//l, err := net.Listen("tcp", address)
-	//m := cmux.New(l)
-
-	//httpL := m.Match(cmux.HTTP1Fast())
+	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
 	//
-	//// Create your HTTP server
-	//httpServer := &http.Server{
-	//	Handler: http.HandlerFunc(replicateHandler),
+	//		if len(entry.AddrIPv4) == 0 {
+	//			log.Printf("Found service: %s, but no IP address", entry.ServiceInstanceName(), ". Going localhost")
+	//			found_ip = "localhost"
+	//			found_port = entry.Port
+	//		} else {
+	//			temp := entry.AddrIPv4[0].String()
+	//
+	//			if !strings.Contains(found_ip, "::") {
+	//				found_ip = temp
+	//				found_port = entry.Port
+	//			}
+	//		}
+	//		log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
+	//	}
 	//}
 
-	// Start the HTTP server in a goroutine
-	//go func() {
-	//	log.Printf("[*] Starting HTTP server on :%d", port)
-	//	if err := httpServer.Serve(httpL); err != nil && err != http.ErrServerClosed {
-	//		log.Fatalf("HTTP server failed: %v", err)
-	//	}
-	//}()
+	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
+	discovered, err := common.NetDiscover(strconv.Itoa(port))
+	found_ip = discovered
+	found_port = port
 
 	if found_ip != "" {
 
@@ -108,18 +98,15 @@ func mainWrapper(group *sync.WaitGroup, address string, port int, waitTime time.
 		go ServeChordWrapper(node1, nil, group)
 	}
 
-	//common.ThreadBroadListen(strconv.Itoa(port))
-	serviceName := "StorageNode"
-	serviceType := "_http._tcp"
-	domain := "local."
-
-	//log.Printf("[*] Starting http server on port %d", port)
-	//go http.ListenAndServe(":"+strconv.Itoa(port), nil)
-
-	err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	common.ThreadBroadListen(strconv.Itoa(port))
+	//serviceName := "StorageNode"
+	//serviceType := "_http._tcp"
+	//domain := "local."
+	//
+	//err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
@@ -177,33 +164,33 @@ func setupServer() {
 }
 
 func main() {
-	if len(os.Args) != 4 {
-		fmt.Println("Usage: program <address> <port> <waitTime>")
-		os.Exit(1)
-	}
+	//if len(os.Args) != 4 {
+	//	fmt.Println("Usage: program <address> <port> <waitTime>")
+	//	os.Exit(1)
+	//}
 
-	addr = os.Args[1]
+	//addr = os.Args[1]
 
-	address := os.Args[1]
-	portStr := os.Args[2]
-	waitTimeStr := os.Args[3]
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Fatalf("Invalid port: %v", err)
-	}
-
-	waitTime, err := time.ParseDuration(waitTimeStr)
-	if err != nil {
-		log.Fatalf("Invalid wait time: %v", err)
-	}
+	//address := os.Args[1]
+	//portStr := os.Args[2]
+	//waitTimeStr := os.Args[3]
+	//
+	//port, err := strconv.Atoi(portStr)
+	//if err != nil {
+	//	log.Fatalf("Invalid port: %v", err)
+	//}
+	//
+	//waitTime, err := time.ParseDuration(waitTimeStr)
+	//if err != nil {
+	//	log.Fatalf("Invalid wait time: %v", err)
+	//}
 
 	group := &sync.WaitGroup{}
 
 	setupServer()
 
 	group.Add(1)
-	go mainWrapper(group, address, port, waitTime)
+	go mainWrapper(group)
 
 	group.Wait()
 }
