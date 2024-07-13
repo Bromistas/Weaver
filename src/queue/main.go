@@ -87,24 +87,24 @@ func (q *Queue) RequeueInvisibleMessages(timeout time.Duration) {
 	}
 }
 
-func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup, port int) {
-	log.Printf("[*] Node %s started", n.Address)
-
-	mux := http.NewServeMux()
-	// Register handlers
-	mux.HandleFunc("/put", putHandler)
-	mux.HandleFunc("/pop", popHandler)
-	mux.HandleFunc("/ack", ackHandler)
-	mux.HandleFunc("/healthcheck", healthCheckHandler)
-
-	// Create an http.Server
-	server := &http.Server{
-		Addr:    "0.0.0.0:" + strconv.Itoa(port), // or any other port
-		Handler: mux,
-	}
-
-	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
-}
+//func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup, port int) {
+//	log.Printf("[*] Node %s started", n.Address)
+//
+//	mux := http.NewServeMux()
+//	// Register handlers
+//	mux.HandleFunc("/put", putHandler)
+//	mux.HandleFunc("/pop", popHandler)
+//	mux.HandleFunc("/ack", ackHandler)
+//	mux.HandleFunc("/healthcheck", healthCheckHandler)
+//
+//	// Create an http.Server
+//	server := &http.Server{
+//		Addr:    "0.0.0.0:" + strconv.Itoa(port), // or any other port
+//		Handler: mux,
+//	}
+//
+//	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
+//}
 
 var (
 	q = NewQueue()
@@ -208,7 +208,6 @@ func requeueInvisibleMessages() {
 }
 
 func setupServer(queue *Queue) {
-	go requeueInvisibleMessages()
 
 	http.HandleFunc("/put", putHandler)
 	http.HandleFunc("/pop", popHandler)
@@ -216,7 +215,69 @@ func setupServer(queue *Queue) {
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 }
 
-func setupDiscovery(n *node.ChordNode, group *sync.WaitGroup) {
+//func setupDiscovery(n *node.ChordNode, group *sync.WaitGroup) {
+//
+//	address, err := common.GetHostIPV1()
+//	if err != nil {
+//		log.Fatalf("Failed to get host IP: %v", err)
+//	}
+//
+//	port, _ := strconv.Atoi(os.Getenv("PORT"))
+//	role := os.Getenv("ROLE")
+//	address += ":" + strconv.Itoa(port)
+//
+//	foundIp := ""
+//	foundPort := 0
+//
+//	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
+//	foundIp = discovered
+//	foundPort = port
+//
+//	if foundIp != "" {
+//		log.Println("Found queue node, joining the ring")
+//		other := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
+//		go serveChordWrapper(n, other, group, port)
+//	} else {
+//		log.Println("No queue node found, starting a new ring")
+//		go serveChordWrapper(n, nil, group, port)
+//	}
+//
+//	common.ThreadBroadListen(strconv.Itoa(port), role)
+//	//serviceName := "QueueNode"
+//	//serviceType := "_http._tcp"
+//	//domain := "local."
+//	//
+//	//err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
+//	//if err != nil {
+//	//	log.Fatalln(err)
+//	//}
+//}
+
+func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
+	log.Printf("[*] Node %s started", n.Address)
+
+	mux := http.NewServeMux()
+	// Register handlers
+	mux.HandleFunc("/put", putHandler)
+	mux.HandleFunc("/pop", popHandler)
+	mux.HandleFunc("/ack", ackHandler)
+	mux.HandleFunc("/healthcheck", healthCheckHandler)
+
+	port := strings.Split(n.Address, ":")[1]
+
+	// Create an http.Server
+	server := &http.Server{
+		Addr:    "0.0.0.0:" + port, // or any other port
+		Handler: mux,
+	}
+
+	go requeueInvisibleMessages()
+
+	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
+}
+
+func mainWrapper(group *sync.WaitGroup) {
+	defer group.Done()
 
 	address, err := common.GetHostIPV1()
 	if err != nil {
@@ -227,77 +288,68 @@ func setupDiscovery(n *node.ChordNode, group *sync.WaitGroup) {
 	role := os.Getenv("ROLE")
 	address += ":" + strconv.Itoa(port)
 
-	//addr := strings.Split(address, ":")
-	//port, _ := strconv.Atoi(addr[1])
-	//ip := net.ParseIP(addr[0])
+	node1 := node.NewChordNode(address, nil)
+
+	// Create a directory this the address name if it doesnt exist already
+	err = os.Mkdir(address, os.ModePerm)
+	if err != nil {
+		log.Printf("Error creating directory: %v", err)
+	}
 
 	foundIp := ""
 	foundPort := 0
-	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
-	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
-	//
-	//		if len(entry.AddrIPv4) == 0 {
-	//			log.Printf("Found service: %s, but no IP address. Going localhost", entry.ServiceInstanceName())
-	//			foundIp = "localhost"
-	//			foundPort = entry.Port
-	//		} else {
-	//			temp := entry.AddrIPv4[0].String()
-	//
-	//			if !strings.Contains(foundIp, "::") {
-	//				foundIp = temp
-	//				foundPort = entry.Port
-	//			}
-	//		}
-	//		log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
-	//	}
-	//}
 
-	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
-
-	discovered, _, err := common.NetDiscover(strconv.Itoa(port), role)
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
 	foundIp = discovered
 	foundPort = port
 
 	if foundIp != "" {
-		log.Println("Found queue node, joining the ring")
-		other := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
-		go serveChordWrapper(n, other, group, port)
+		fmt.Println("Found queue node, joining the ring")
+		node2 := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
+		go serveChordWrapper(node1, node2, group)
 	} else {
-		log.Println("No queue node found, starting a new ring")
-		go serveChordWrapper(n, nil, group, port)
+		fmt.Println("No queue node found, starting a new ring")
+		go serveChordWrapper(node1, nil, group)
 	}
 
 	common.ThreadBroadListen(strconv.Itoa(port), role)
-	//serviceName := "QueueNode"
-	//serviceType := "_http._tcp"
-	//domain := "local."
-	//
-	//err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
 }
 
-func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Duration, first bool) {
-	defer group.Done()
-
-	n := node.NewChordNode(address, nil)
-
-	if first {
-		setupServer(q)
-	}
-
-	go setupDiscovery(n, group)
-}
+//func setupNode(address string, port int, group *sync.WaitGroup, waitTime time.Duration, first bool) {
+//	defer group.Done()
+//
+//	n := node.NewChordNode(address, nil)
+//
+//	if first {
+//		setupServer(q)
+//	}
+//
+//	go setupDiscovery(n, group)
+//}
 
 func main() {
+	// Initialization
+	//addr := "127.0.0.1"         // Example default address
+	//port := 9000                // Example default port
+	//waitTime := 1 * time.Second // Example default wait time
+
+	// Environment variable overrides (if applicable)
+	//if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
+	//	addr = envAddr
+	//}
+	//if envPort, err := strconv.Atoi(os.Getenv("PORT")); err == nil {
+	//	port = envPort
+	//}
+	//if envWaitTime, err := time.ParseDuration(os.Getenv("WAIT_TIME")); err == nil {
+	//	waitTime = envWaitTime
+	//}
+
 	group := &sync.WaitGroup{}
-	group.Add(2)
 
-	go setupNode("127.0.0.1:9000", 9000, group, 1*time.Second, true)
-	//go setupNode("127.0.0.1:9001", 9001, group, 3*time.Second, false)
-	//go setupNode("127.0.0.1:9002", 9002, group, 5*time.Second, false)
+	// Setup Server and Node
+	group.Add(1)
+	go mainWrapper(group)
 
-	// Wait indefinitely
+	// Wait for all goroutines to finish
 	group.Wait()
 }

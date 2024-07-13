@@ -11,7 +11,7 @@ import (
 
 // NetDiscover discovers the service by broadcasting a message and waiting for a response.
 // It accepts a port and a timeout in seconds as parameters.
-func NetDiscover(port string, role string) (string, string, error) {
+func NetDiscover(port string, role string) (string, error) {
 	timeOut := 10000
 
 	num, _ := strconv.Atoi(port)
@@ -22,7 +22,7 @@ func NetDiscover(port string, role string) (string, string, error) {
 
 	conn, err := net.ListenPacket("udp4", fmt.Sprintf(":%s", port))
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	defer conn.Close()
 
@@ -34,7 +34,7 @@ func NetDiscover(port string, role string) (string, string, error) {
 	err = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
 		log.Error("Error setting deadline for incoming messages.")
-		return "", "", err
+		return "", err
 	}
 
 	for i := 0; i < timeOut; i++ {
@@ -45,15 +45,14 @@ func NetDiscover(port string, role string) (string, string, error) {
 
 		if string(buffer[:n]) == fmt.Sprintf("I am a %s chord", role) {
 			foundIp := strings.Split(addr.String(), ":")[0]
-			foundPort := strings.Split(addr.String(), ":")[1]
 			log.Infof("Discover a chord of role %s in %s", role, foundIp)
-			return foundIp, foundPort, nil
+			return foundIp, nil
 		}
 	}
 
 	log.Infof("Not found a chord of role %s", role)
 
-	return "", "", nil
+	return "", nil
 
 }
 

@@ -34,10 +34,6 @@ func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 func mainWrapper(group *sync.WaitGroup) {
 	defer group.Done()
 
-	//ip := net.ParseIP("127.0.0.1")
-	//ip, _ := CheckIps()
-	//ip := net.ParseIP("127.0.0.1")
-
 	address, err := common.GetHostIPV1()
 	if err != nil {
 		log.Fatalf("Failed to get host IP: %v", err)
@@ -46,10 +42,6 @@ func mainWrapper(group *sync.WaitGroup) {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	role := os.Getenv("ROLE")
 	address += ":" + strconv.Itoa(port)
-
-	log.Println("Port: ", port)
-	//waitTime, _ := time.ParseDuration(os.Getenv("WAIT_TIME"))
-	//address := ip.String() + ":" + os.Getenv("PORT")
 
 	node1 := node.NewChordNode(address, CustomPut)
 
@@ -61,27 +53,8 @@ func mainWrapper(group *sync.WaitGroup) {
 
 	found_ip := ""
 	found_port := 0
-	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
-	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
-	//
-	//		if len(entry.AddrIPv4) == 0 {
-	//			log.Printf("Found service: %s, but no IP address", entry.ServiceInstanceName(), ". Going localhost")
-	//			found_ip = "localhost"
-	//			found_port = entry.Port
-	//		} else {
-	//			temp := entry.AddrIPv4[0].String()
-	//
-	//			if !strings.Contains(found_ip, "::") {
-	//				found_ip = temp
-	//				found_port = entry.Port
-	//			}
-	//		}
-	//		log.Printf("Registered service: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), entry.AddrIPv4, entry.Port)
-	//	}
-	//}
 
-	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
-	discovered, _, err := common.NetDiscover(strconv.Itoa(port), role)
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
 	found_ip = discovered
 	found_port = port
 
@@ -99,14 +72,6 @@ func mainWrapper(group *sync.WaitGroup) {
 	}
 
 	common.ThreadBroadListen(strconv.Itoa(port), role)
-	//serviceName := "StorageNode"
-	//serviceType := "_http._tcp"
-	//domain := "local."
-	//
-	//err = common.RegisterForDiscovery(serviceName, serviceType, domain, port, ip)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {

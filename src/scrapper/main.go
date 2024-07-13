@@ -16,7 +16,7 @@ func failOnError(err error, msg string) {
 
 func discoverQueue(node *ScrapperNode, panicOnFail bool) {
 	port := os.Getenv("PORT")
-	foundAddr, _, _ := common.NetDiscover(port, "QUEUE")
+	foundAddr, _ := common.NetDiscover(port, "QUEUE")
 
 	node.QueueAddress = foundAddr
 	node.QueuePort = 9000
@@ -47,12 +47,12 @@ func discoverQueue(node *ScrapperNode, panicOnFail bool) {
 
 func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 
-	port := os.Getenv("PORT")
-	foundAddr, _, _ := common.NetDiscover(port, "STORAGE")
-
-	node.StorageAddress = foundAddr
-	node.StoragePort = 10000
-
+	//port := os.Getenv("PORT")
+	//foundAddr, _ := common.NetDiscover(port, "STORAGE")
+	//
+	//node.StorageAddress = foundAddr
+	//node.StoragePort = 10000
+	//
 	//node.QueueAddress = foundAddr
 	//
 	//temp, err := strconv.Atoi(foundPort)
@@ -61,7 +61,7 @@ func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 	//}
 	//
 	//node.QueuePort = temp
-
+	//
 	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
 	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Storage") {
 	//		if len(entry.AddrIPv4) == 0 {
