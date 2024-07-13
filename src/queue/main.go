@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/grandcat/zeroconf"
 	"log"
 	"net/http"
 	"node"
@@ -43,6 +42,8 @@ func (q *Queue) Put(message string) {
 	}
 	q.messages[id] = msg
 	q.order = append(q.order, id)
+
+	log.Printf("Message %s added to queue with content %s", id, message)
 }
 
 func (q *Queue) Pop() (common.Message, bool) {
@@ -115,22 +116,24 @@ func (q *Queue) changeLeader(waitTime time.Duration) {
 	foundIp := ""
 	foundPort := 0
 
-	discoveryCallback := func(entry *zeroconf.ServiceEntry) {
-		if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
-			if len(entry.AddrIPv4) > 0 {
-				currentIp := entry.AddrIPv4[0].String()
-				if foundIp == "" || currentIp < foundIp {
-					foundIp = currentIp
-					foundPort = entry.Port
-					log.Printf("New leader found: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), foundIp, foundPort)
-				}
-			} else {
-				log.Printf("Found service: %s, but no IP address. Ignoring.", entry.ServiceInstanceName())
-			}
-		}
-	}
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role)
 
-	common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
+	//discoveryCallback := func(entry *zeroconf.ServiceEntry) {
+	//	if strings.HasPrefix(entry.ServiceInstanceName(), "Queue") {
+	//		if len(entry.AddrIPv4) > 0 {
+	//			currentIp := entry.AddrIPv4[0].String()
+	//			if foundIp == "" || currentIp < foundIp {
+	//				foundIp = currentIp
+	//				foundPort = entry.Port
+	//				log.Printf("New leader found: %s, IP: %s, Port: %d\n", entry.ServiceInstanceName(), foundIp, foundPort)
+	//			}
+	//		} else {
+	//			log.Printf("Found service: %s, but no IP address. Ignoring.", entry.ServiceInstanceName())
+	//		}
+	//	}
+	//}
+	//
+	//common.Discover("_http._tcp", "local.", waitTime, discoveryCallback)
 
 	finalLeader := fmt.Sprintf("%s:%s", foundIp, strconv.Itoa(foundPort))
 	q.leaderAddr = finalLeader

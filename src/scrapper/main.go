@@ -15,8 +15,8 @@ func failOnError(err error, msg string) {
 }
 
 func discoverQueue(node *ScrapperNode, panicOnFail bool) {
-	port := os.Getenv("PORT")
-	foundAddr, _ := common.NetDiscover(port, "QUEUE")
+	//port := os.Getenv("PORT")
+	foundAddr, _ := common.NetDiscover("9000", "QUEUE")
 
 	node.QueueAddress = foundAddr
 	node.QueuePort = 9000
@@ -40,20 +40,19 @@ func discoverQueue(node *ScrapperNode, panicOnFail bool) {
 	//
 	//common.Discover("_http._tcp", "local.", 5*time.Second, discoverQueueCallback)
 	//
-	if panicOnFail && (node.QueueAddress == "" || node.QueuePort == 0) {
-		log.Panicf("Failed to discover Queue service")
-	}
+	//if panicOnFail && (node.QueueAddress == "" || node.QueuePort == 0) {
+	//	log.Panicf("Failed to discover Queue service")
+	//}
 }
 
 func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 
-	//port := os.Getenv("PORT")
-	//foundAddr, _ := common.NetDiscover(port, "STORAGE")
+	port := os.Getenv("PORT")
+	foundAddr, _ := common.NetDiscover(port, "STORAGE")
+
 	//
-	//node.StorageAddress = foundAddr
-	//node.StoragePort = 10000
-	//
-	//node.QueueAddress = foundAddr
+	node.StorageAddress = foundAddr
+	node.StoragePort = 10000
 	//
 	//temp, err := strconv.Atoi(foundPort)
 	//if err != nil {
@@ -122,6 +121,7 @@ func main() {
 	//go healthCheckStorage(node)
 
 	log.Printf("[*] Waiting for messages. To exit press CTRL+C")
+
 	err := queueService.Listen(time.Second, node)
 	if err != nil {
 		log.Panicf("[!] Error listening to queue: %s", err)

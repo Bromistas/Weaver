@@ -16,7 +16,7 @@ services:
       - ROLE=STORAGE
     ports:
       - "10002:10000"
-    command: sh -c "sleep 2 && /storage"
+    command: sh -c "sleep 4 && /storage"
 
   storage3:
     image: storage:1.0
@@ -25,7 +25,7 @@ services:
       - ROLE=STORAGE
     ports:
       - "10003:10000"
-    command: sh -c "sleep 2 && /storage"
+    command: sh -c "sleep 4 && /storage"
   queue1:
     image: queue:1.0
     environment:
@@ -34,14 +34,26 @@ services:
     ports:
       - "10005:9000"
 
-  queue2:
-    image: queue:1.0
+#  queue2:
+#    image: queue:1.0
+#    environment:
+#      - PORT=9000
+#      - ROLE=QUEUE
+#    ports:
+#      - "10006:9000"
+#    command: sh -c "sleep 2 && /queue"
+
+  scrapper:
+    image: scrapper:1.0
     environment:
-      - PORT=9000
-      - ROLE=QUEUE
+      - PORT=10000
+      - ROLE=SCRAPPER
     ports:
-      - "10006:9000"
-    command: sh -c "sleep 2 && /queue"
+      - "10007:11000"
+    command: sh -c "sleep 3 && /scrapper"
+
+  client:
+    image: client:1.0
 
   init:
     image: busybox

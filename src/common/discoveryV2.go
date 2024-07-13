@@ -11,7 +11,7 @@ import (
 
 // NetDiscover discovers the service by broadcasting a message and waiting for a response.
 // It accepts a port and a timeout in seconds as parameters.
-func NetDiscover(port string, role string) (string, error) {
+func NetDiscover(port string, role string, election bool) (string, error) {
 	timeOut := 10000
 
 	num, _ := strconv.Atoi(port)
@@ -45,7 +45,7 @@ func NetDiscover(port string, role string) (string, error) {
 
 		if string(buffer[:n]) == fmt.Sprintf("I am a %s chord", role) {
 			foundIp := strings.Split(addr.String(), ":")[0]
-			log.Infof("Discover a chord of role %s in %s", role, foundIp)
+			log.Infof("Discovered a chord of role %s in %s", role, foundIp)
 			return foundIp, nil
 		}
 	}
