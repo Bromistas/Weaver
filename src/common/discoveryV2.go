@@ -37,6 +37,7 @@ func NetDiscover(port string, role string, election bool) (string, error) {
 		return "", err
 	}
 
+	var lowestIp string
 	for i := 0; i < timeOut; i++ {
 		n, addr, err := conn.ReadFrom(buffer)
 		if err != nil {
@@ -44,10 +45,21 @@ func NetDiscover(port string, role string, election bool) (string, error) {
 		}
 
 		if string(buffer[:n]) == fmt.Sprintf("I am a %s chord", role) {
-			foundIp := strings.Split(addr.String(), ":")[0]
-			log.Infof("Discovered a chord of role %s in %s", role, foundIp)
-			return foundIp, nil
+			currentIp := strings.Split(addr.String(), ":")[0]
+			if election {
+				if lowestIp == "" || CompareIPs(net.ParseIP(currentIp), net.ParseIP(lowestIp)) == -1 {
+					lowestIp = currentIp
+				}
+			} else {
+				log.Infof("Discovered a chord of role %s in %s", role, currentIp)
+				return currentIp, nil
+			}
 		}
+	}
+
+	if election && lowestIp != "" {
+		log.Infof("Lowest IP discovered for role %s is %s", role, lowestIp)
+		return lowestIp, nil
 	}
 
 	log.Infof("Not found a chord of role %s", role)

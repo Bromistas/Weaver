@@ -40,7 +40,7 @@ const (
 )
 
 func getQueueUrl() string {
-	foundAddr, err := common.NetDiscover("9000", "QUEUE")
+	foundAddr, err := common.NetDiscover("9000", "QUEUE", true)
 	if err != nil || foundAddr == "" {
 		log.Fatalf("Not found queue %s", err)
 	}
