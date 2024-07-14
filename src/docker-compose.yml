@@ -9,23 +9,23 @@ services:
     ports:
       - "10001:10000"
 
-#  storage2:
-#    image: storage:1.0
-#    environment:
-#      - PORT=10000
-#      - ROLE=STORAGE
-#    ports:
-#      - "10002:10000"
-#    command: sh -c "sleep 4 && /storage"
-  #
-  #  storage3:
-  #    image: storage:1.0
-  #    environment:
-  #      - PORT=10000
-  #      - ROLE=STORAGE
-  #    ports:
-  #      - "10003:10000"
-  #    command: sh -c "sleep 4 && /storage"
+  storage2:
+    image: storage:1.0
+    environment:
+      - PORT=10000
+      - ROLE=STORAGE
+    ports:
+      - "10002:10000"
+    command: sh -c "sleep 4 && /storage"
+
+  storage3:
+    image: storage:1.0
+    environment:
+      - PORT=10000
+      - ROLE=STORAGE
+    ports:
+      - "10003:10000"
+    command: sh -c "sleep 4 && /storage"
   queue1:
     image: queue:1.0
     environment:

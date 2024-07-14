@@ -43,6 +43,7 @@ func mainWrapper(group *sync.WaitGroup) {
 	role := os.Getenv("ROLE")
 	address += ":" + strconv.Itoa(port)
 
+	addr = address
 	node1 := node.NewChordNode(address, CustomPut)
 
 	// Create a directory this the address name if it doesnt exist already
@@ -55,15 +56,18 @@ func mainWrapper(group *sync.WaitGroup) {
 	found_port := 0
 
 	discovered, err := common.NetDiscover(strconv.Itoa(port), role, false, false)
-	found_ip = discovered[0]
-	found_port = port
+
+	if err != nil {
+		log.Fatalf("Failed to discover: %v", err)
+	}
+
+	if len(discovered) > 0 {
+		found_ip = discovered[0]
+		found_port = port
+	}
 
 	if found_ip != "" {
-
-		//found_ip = strings.Split(chordAddr, ":")[0]
-		//found_port, _ = strconv.Atoi(strings.Split(chordAddr, ":")[1])
 		fmt.Println("Found storage node, joining the ring")
-
 		node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
 		go ServeChordWrapper(node1, node2, group)
 	} else {
@@ -102,7 +106,7 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Generate a filename based on the current timestamp
 	filename := fmt.Sprintf("%s.json", payload.Name)
-	filepath := filepath.Join(addr, filename)
+	fp := filepath.Join(addr, filename)
 
 	// Convert the payload to JSON
 	data, err := json.MarshalIndent(payload, "", "  ")
@@ -112,7 +116,7 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write the JSON content to the file
-	err = os.WriteFile(filepath, data, 0644)
+	err = os.WriteFile(fp, data, 0644)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -120,7 +124,8 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Respond to the client
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "File created successfully: %s\n", filename)
+	fmt.Fprintf(w, "File replicated successfully: %s\n", filename)
+	log.Printf("File replicated successfully: %s\n", filename)
 }
 
 func setupServer() {
@@ -129,27 +134,6 @@ func setupServer() {
 }
 
 func main() {
-	//if len(os.Args) != 4 {
-	//	fmt.Println("Usage: program <address> <port> <waitTime>")
-	//	os.Exit(1)
-	//}
-
-	//addr = os.Args[1]
-
-	//address := os.Args[1]
-	//portStr := os.Args[2]
-	//waitTimeStr := os.Args[3]
-	//
-	//port, err := strconv.Atoi(portStr)
-	//if err != nil {
-	//	log.Fatalf("Invalid port: %v", err)
-	//}
-	//
-	//waitTime, err := time.ParseDuration(waitTimeStr)
-	//if err != nil {
-	//	log.Fatalf("Invalid wait time: %v", err)
-	//}
-
 	group := &sync.WaitGroup{}
 
 	setupServer()

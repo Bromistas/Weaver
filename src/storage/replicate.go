@@ -76,7 +76,7 @@ func replicateNewFiles(ctx context.Context, n *node.ChordNode, predecessor *node
 			fmt.Printf("File eligible for replication: %s\n", product.Name)
 
 			// Send it
-			err = replicateProduct("http://"+predecessor.Address, product)
+			err = replicateProduct("http://"+predecessor.Address+"/replicate", product)
 			if err != nil {
 				fmt.Printf("Error while replicating %s to %s: %s", product.Name, predecessor.Address, err.Error())
 				return
