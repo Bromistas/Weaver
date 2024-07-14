@@ -1,22 +1,22 @@
 version: '3.8'
 
 services:
-  #  storage1:
-  #    image: storage:1.0
-  #    environment:
-  #      - PORT=10000
-  #      - ROLE=STORAGE
-  #    ports:
-  #      - "10001:10000"
-  #
-  #  storage2:
-  #    image: storage:1.0
-  #    environment:
-  #      - PORT=10000
-  #      - ROLE=STORAGE
-  #    ports:
-  #      - "10002:10000"
-  #    command: sh -c "sleep 4 && /storage"
+  storage1:
+    image: storage:1.0
+    environment:
+      - PORT=10000
+      - ROLE=STORAGE
+    ports:
+      - "10001:10000"
+
+#  storage2:
+#    image: storage:1.0
+#    environment:
+#      - PORT=10000
+#      - ROLE=STORAGE
+#    ports:
+#      - "10002:10000"
+#    command: sh -c "sleep 4 && /storage"
   #
   #  storage3:
   #    image: storage:1.0
@@ -45,17 +45,17 @@ services:
       - "10008:9001"
     command: sh -c "sleep 3 && /queue"
 
-  #  scrapper:
-  #    image: scrapper:1.0
-  #    environment:
-  #      - PORT=10000
-  #      - ROLE=SCRAPPER
-  #    ports:
-  #      - "10007:11000"
-  #    command: sh -c "sleep 3 && /scrapper"
+  scrapper:
+    image: scrapper:1.0
+    environment:
+      - PORT=10000
+      - ROLE=SCRAPPER
+    ports:
+      - "10007:11000"
+    command: sh -c "sleep 3 && /scrapper"
   #
-  #  client:
-  #    image: client:1.0
+  client:
+    image: client:1.0
 
   init:
     image: busybox

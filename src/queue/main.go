@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"node"
 	"os"
@@ -91,6 +90,7 @@ func (q *Queue) RequeueInvisibleMessages(timeout time.Duration) {
 
 var (
 	q = NewQueue()
+	n *node.ChordNode
 )
 
 // Create a function that will constantly ping the leaderAddr for healthchecks and when failed it will change its leader to be the element in the ring with the lowest id
@@ -126,28 +126,29 @@ func (q *Queue) leaderAttention() {
 }
 
 func (q *Queue) changeLeader(waitTime time.Duration) {
-	foundIp := ""
-	foundPort := 0
 
-	discoveryPort := "9001"
-	discovered, err := common.NetDiscover(discoveryPort, "QUEUE", true)
-	foundIp = discovered
-	foundPort = 9000
+	//foundIp := ""
+	//foundPort := 0
 
-	if err != nil {
-		log.Printf("Error discovering a leader: %s", err)
-	}
-
-	// Convert string IPs to net.IP
-	discoveredNetIP := net.ParseIP(discovered)
-	currentNetIP := net.ParseIP(q.addr)
-
-	if common.CompareIPs(currentNetIP, discoveredNetIP) <= 0 {
-		q.leaderAddr = q.addr
-	} else {
-		finalLeader := fmt.Sprintf("%s:%s", foundIp, strconv.Itoa(foundPort))
-		q.leaderAddr = finalLeader
-	}
+	//discoveryPort := "9001"
+	//discovered, err := common.NetDiscover(discoveryPort, "QUEUE", true)
+	//foundIp = discovered
+	//foundPort = 9000
+	//
+	//if err != nil {
+	//	log.Printf("Error discovering a leader: %s", err)
+	//}
+	//
+	//// Convert string IPs to net.IP
+	//discoveredNetIP := net.ParseIP(discovered)
+	//currentNetIP := net.ParseIP(q.addr)
+	//
+	//if common.CompareIPs(currentNetIP, discoveredNetIP) <= 0 {
+	//	q.leaderAddr = q.addr
+	//} else {
+	//	finalLeader := fmt.Sprintf("%s:%s", foundIp, strconv.Itoa(foundPort))
+	//	q.leaderAddr = finalLeader
+	//}
 
 	log.Printf("Final leader for node %s is: %s", q.addr, q.leaderAddr)
 }
@@ -222,7 +223,7 @@ func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	}
 
 	go requeueInvisibleMessages()
-	go q.leaderAttention()
+	//go q.leaderAttention()
 
 	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
 }
@@ -236,13 +237,12 @@ func mainWrapper(group *sync.WaitGroup) {
 	}
 
 	q.addr = address
-	q.leaderAddr = address
 
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	role := os.Getenv("ROLE")
 	address += ":" + strconv.Itoa(port)
 
-	node1 := node.NewChordNode(address, nil)
+	n = node.NewChordNode(address, nil)
 
 	// Create a directory this the address name if it doesnt exist already
 	err = os.Mkdir(address, os.ModePerm)
@@ -253,17 +253,20 @@ func mainWrapper(group *sync.WaitGroup) {
 	foundIp := ""
 	foundPort := 0
 
-	discovered, err := common.NetDiscover(strconv.Itoa(port), role, false)
-	foundIp = discovered
-	foundPort = port
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role, false, false)
+
+	if len(discovered) > 0 {
+		foundIp = discovered[0]
+		foundPort = port
+	}
 
 	if foundIp != "" {
 		fmt.Println("Found queue node, joining the ring")
 		node2 := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
-		go serveChordWrapper(node1, node2, group)
+		go serveChordWrapper(n, node2, group)
 	} else {
 		fmt.Println("No queue node found, starting a new ring")
-		go serveChordWrapper(node1, nil, group)
+		go serveChordWrapper(n, nil, group)
 	}
 
 	common.ThreadBroadListen(strconv.Itoa(port), role)

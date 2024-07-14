@@ -54,8 +54,8 @@ func mainWrapper(group *sync.WaitGroup) {
 	found_ip := ""
 	found_port := 0
 
-	discovered, err := common.NetDiscover(strconv.Itoa(port), role, false)
-	found_ip = discovered
+	discovered, err := common.NetDiscover(strconv.Itoa(port), role, false, false)
+	found_ip = discovered[0]
 	found_port = port
 
 	if found_ip != "" {

@@ -130,6 +130,7 @@ func (q *QueueServiceClient) Listen(tickDuration time.Duration, node *ScrapperNo
 	ticker := time.NewTicker(tickDuration)
 	defer ticker.Stop()
 
+	log.Printf("Listening to queue %s", q.baseURL)
 	for {
 		select {
 		case <-ticker.C:
