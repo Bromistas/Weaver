@@ -23,22 +23,23 @@ func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string
 	log.Printf("[*] Node %s started", address)
 	// go ReplicateData(context.Background(), n, 5*time.Second)
 
-	// Create your HTTP server with the custom ServeMux
-
-	//var ring *chord.Ring
 	var err error
 
 	if bootstrap == "" {
 		_, err = chord.Create(conf, trans)
+		if err != nil {
+			log.Fatalf("Failed to create ring: %v", err)
+		} else {
+			log.Printf("Succesfully created the ring")
+		}
 	} else {
 		_, err = chord.Join(conf, trans, bootstrap)
+		if err != nil {
+			log.Fatalf("Failed to join ring: %v", err)
+		} else {
+			log.Printf("Successfully joined the network of %s", bootstrap)
+		}
 	}
-
-	if err != nil {
-		log.Fatalf("Failed to create or join the ring: %v", err)
-	}
-
-	//node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
 }
 
 func mainWrapper(group *sync.WaitGroup) {

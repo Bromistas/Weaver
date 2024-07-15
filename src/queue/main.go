@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"node"
 	"os"
 	"strconv"
 	"sync"
@@ -89,7 +88,6 @@ func (q *Queue) RequeueInvisibleMessages(timeout time.Duration) {
 
 var (
 	q = NewQueue()
-	n *node.ChordNode
 )
 
 func putHandler(w http.ResponseWriter, r *http.Request) {
@@ -144,8 +142,34 @@ func requeueInvisibleMessages() {
 }
 
 func serveChordWrapper(conf *chord.Config, trans chord.Transport, address string, bootstrap string) {
-	log.Printf("[*] Node %s started", n.Address)
+	log.Printf("[*] Node %s started", address)
 
+	go requeueInvisibleMessages()
+	//go q.leaderAttention()
+
+	var err error
+
+	if bootstrap == "" {
+		_, err = chord.Create(conf, trans)
+		if err != nil {
+			log.Fatalf("Failed to create ring: %v", err)
+		} else {
+			log.Printf("Succesfully created the ring")
+		}
+	} else {
+		log.Printf("bootstrap: ")
+		_, err = chord.Join(conf, trans, bootstrap)
+		if err != nil {
+			log.Fatalf("Failed to join ring: %v", err)
+		} else {
+			log.Printf("Successfully joined the network of %s", bootstrap)
+		}
+	}
+
+	//node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
+}
+
+func setupServer(address string) *http.Server {
 	mux := http.NewServeMux()
 	// Register handlers
 	mux.HandleFunc("/put", putHandler)
@@ -153,18 +177,13 @@ func serveChordWrapper(conf *chord.Config, trans chord.Transport, address string
 	mux.HandleFunc("/ack", ackHandler)
 	mux.HandleFunc("/healthcheck", healthCheckHandler)
 
-	//port := strings.Split(n.Address, ":")[1]
+	// Create a http.Server
+	server := &http.Server{
+		Addr:    address, // or any other port
+		Handler: mux,
+	}
 
-	//// Create an http.Server
-	//server := &http.Server{
-	//	Addr:    "0.0.0.0:" + port, // or any other port
-	//	Handler: mux,
-	//}
-
-	//go requeueInvisibleMessages()
-	//go q.leaderAttention()
-
-	//node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
+	return server
 }
 
 func mainWrapper(group *sync.WaitGroup) {
@@ -181,7 +200,12 @@ func mainWrapper(group *sync.WaitGroup) {
 	role := os.Getenv("ROLE")
 	address += ":" + strconv.Itoa(port)
 
-	n = node.NewChordNode(address, nil)
+	config := chord.DefaultConfig(address)
+	server := setupServer(address)
+	transport, err := chord.InitTCPTransport(address, 4*time.Second, server)
+	if err != nil {
+		log.Fatalf("Failed to create transport: %v", err)
+	}
 
 	// Create a directory this the address name if it doesnt exist already
 	err = os.Mkdir(address, os.ModePerm)
@@ -201,11 +225,11 @@ func mainWrapper(group *sync.WaitGroup) {
 
 	if foundIp != "" {
 		fmt.Println("Found queue node, joining the ring")
-		node2 := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
-		go serveChordWrapper(n, node2, group)
+		//node2 := node.NewChordNode(foundIp+":"+fmt.Sprint(foundPort), nil)
+		go serveChordWrapper(config, transport, address, foundIp+":"+fmt.Sprint(foundPort))
 	} else {
 		fmt.Println("No queue node found, starting a new ring")
-		go serveChordWrapper(n, nil, group)
+		go serveChordWrapper(config, transport, address, "")
 	}
 
 	common.ThreadBroadListen(strconv.Itoa(port), role)
