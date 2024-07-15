@@ -39,8 +39,6 @@ func healthCheckStorage(node *ScrapperNode) {
 			discoverStorage(node, false)
 			storageService = NewStorageServiceClient(node.StorageAddress + ":" + strconv.Itoa(node.StoragePort))
 		}
-
-		time.Sleep(1 * time.Second) // Adjust the sleep duration as needed
 	}
 }
 
@@ -88,5 +86,7 @@ func main() {
 
 	node := &ScrapperNode{}
 	discoverStorage(node, false)
+	go healthCheckStorage(node)
+
 	discoverQueue(node)
 }
