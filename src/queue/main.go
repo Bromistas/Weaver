@@ -1,8 +1,8 @@
 package main
 
 import (
+	"chord"
 	common "commons"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,7 +10,6 @@ import (
 	"node"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -144,7 +143,7 @@ func requeueInvisibleMessages() {
 	}
 }
 
-func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
+func serveChordWrapper(conf *chord.Config, trans chord.Transport, address string, bootstrap string) {
 	log.Printf("[*] Node %s started", n.Address)
 
 	mux := http.NewServeMux()
@@ -154,18 +153,18 @@ func serveChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	mux.HandleFunc("/ack", ackHandler)
 	mux.HandleFunc("/healthcheck", healthCheckHandler)
 
-	port := strings.Split(n.Address, ":")[1]
+	//port := strings.Split(n.Address, ":")[1]
 
-	// Create an http.Server
-	server := &http.Server{
-		Addr:    "0.0.0.0:" + port, // or any other port
-		Handler: mux,
-	}
+	//// Create an http.Server
+	//server := &http.Server{
+	//	Addr:    "0.0.0.0:" + port, // or any other port
+	//	Handler: mux,
+	//}
 
-	go requeueInvisibleMessages()
+	//go requeueInvisibleMessages()
 	//go q.leaderAttention()
 
-	node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
+	//node.ServeChord(context.Background(), n, bootstrap, group, nil, server)
 }
 
 func mainWrapper(group *sync.WaitGroup) {

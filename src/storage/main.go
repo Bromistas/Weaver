@@ -24,11 +24,6 @@ func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string
 	// go ReplicateData(context.Background(), n, 5*time.Second)
 
 	// Create your HTTP server with the custom ServeMux
-	//mux := setupServer()
-	//httpServer := &http.Server{
-	//	Addr:    address,
-	//	Handler: mux,
-	//}
 
 	//var ring *chord.Ring
 	var err error
@@ -61,7 +56,9 @@ func mainWrapper(group *sync.WaitGroup) {
 	addr = address
 	//node1 := node.NewChordNode(address, CustomPut)
 	config := chord.DefaultConfig(address)
-	transport, err := chord.InitTCPTransport(address, 4*time.Second)
+	server := setupServer(address)
+	transport, err := chord.InitTCPTransport(address, 4*time.Second, server)
+
 	if err != nil {
 		log.Fatalf("Failed to create transport: %v", err)
 	}
@@ -190,17 +187,21 @@ func gatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setupServer() *http.ServeMux {
+func setupServer(address string) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthcheck", healthCheckHandler)
 	mux.HandleFunc("/replicate", replicateHandler)
 	mux.HandleFunc("/gather", gatherHandler)
-	return mux
+
+	httpServer := &http.Server{
+		Addr:    address,
+		Handler: mux,
+	}
+
+	return httpServer
 }
 func main() {
 	group := &sync.WaitGroup{}
-
-	setupServer()
 
 	group.Add(1)
 	go mainWrapper(group)

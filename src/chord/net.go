@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -89,7 +90,7 @@ type tcpBodyBoolError struct {
 
 // Creates a new TCP Transport on the given listen address with the
 // configured timeout duration.
-func InitTCPTransport(listen string, timeout time.Duration) (*TCPTransport, error) {
+func InitTCPTransport(listen string, timeout time.Duration, server *http.Server) (*TCPTransport, error) {
 	// Try to start the listener
 	sock, err := net.Listen("tcp", listen)
 	if err != nil {
@@ -117,6 +118,15 @@ func InitTCPTransport(listen string, timeout time.Duration) (*TCPTransport, erro
 
 	// Reap old connections
 	go tcp.reapOld()
+
+	// Start HTTP server on a separate goroutine
+	go func() {
+		err = server.Serve(sock)
+		if err != nil {
+			log.Fatalf("Error while serving http: %s", err.Error())
+			return
+		}
+	}()
 
 	// Done
 	return tcp, nil
