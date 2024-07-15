@@ -30,5 +30,7 @@ func (s *ScrapperNode) DummyHandler(url string) {
 	// Put to the database
 	group := &sync.WaitGroup{}
 	group.Add(1)
+
+	log.Printf("Inserting key with name %s and url %s", product.Name, product.URL)
 	put_pair(addr, product.Name, string(body), group)
 }

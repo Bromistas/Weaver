@@ -33,7 +33,4 @@ WORKDIR /app/client
 # Build the Go app
 RUN go build -o /client
 
-# Set the entry point to the built binary
 CMD ["/client"]
-
-EXPOSE 50051

@@ -129,6 +129,8 @@ func gather() {
 		log.Fatalf("Error while discovering storage nodes %s", err.Error())
 	}
 
+	fmt.Printf("[*] While gathering, found %d different storage nodes\n", len(storeIps))
+
 	productMap := make(map[string]*Product)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -162,8 +164,16 @@ func gather() {
 				if existingProduct, ok := productMap[product.URL]; ok {
 					existingProduct.Addresses = append(existingProduct.Addresses, ip)
 				} else {
-					product.Addresses = []string{ip}
-					productMap[product.URL] = &product
+					newProduct := Product{
+						Name:        product.Name,
+						Price:       product.Price,
+						URL:         product.URL,
+						Description: product.Description,
+						Rating:      product.Rating,
+						Addresses:   []string{ip}, // Initialize with current IP
+					}
+
+					productMap[product.URL] = &newProduct
 				}
 			}
 		}(ip)
@@ -174,7 +184,16 @@ func gather() {
 	// Printing the table
 	fmt.Println("URL\tName\tDescription\tPrice\tAddresses")
 	for _, product := range productMap {
-		fmt.Printf("%s\t%s\t%s\t%.2f\t%s\n", product.URL, product.Name, product.Description, product.Price, product.Addresses)
+		fmt.Printf("%s\t%s\t%s\t%.2f\t%s\n", product.URL, product.Name, product.Description, product.Price, strings.Join(product.Addresses, ", "))
 	}
+}
 
+// contains checks if a slice contains a string
+func contains(slice []string, str string) bool {
+	for _, v := range slice {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
