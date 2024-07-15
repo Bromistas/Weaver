@@ -1,14 +1,13 @@
 package main
 
 import (
+	"chord"
 	"commons"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"node"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,18 +19,31 @@ var (
 	addr string
 )
 
-func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync.WaitGroup) {
-	log.Printf("[*] Node %s started", n.Address)
-	go ReplicateData(context.Background(), n, 5*time.Second)
+func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string, bootstrap string) {
+	log.Printf("[*] Node %s started", address)
+	// go ReplicateData(context.Background(), n, 5*time.Second)
 
 	// Create your HTTP server with the custom ServeMux
-	mux := setupServer()
-	httpServer := &http.Server{
-		Addr:    n.Address,
-		Handler: mux,
+	//mux := setupServer()
+	//httpServer := &http.Server{
+	//	Addr:    address,
+	//	Handler: mux,
+	//}
+
+	//var ring *chord.Ring
+	var err error
+
+	if bootstrap == "" {
+		_, err = chord.Create(conf, trans)
+	} else {
+		_, err = chord.Join(conf, trans, bootstrap)
 	}
 
-	node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
+	if err != nil {
+		log.Fatalf("Failed to create or join the ring: %v", err)
+	}
+
+	//node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
 }
 
 func mainWrapper(group *sync.WaitGroup) {
@@ -47,7 +59,12 @@ func mainWrapper(group *sync.WaitGroup) {
 	address += ":" + strconv.Itoa(port)
 
 	addr = address
-	node1 := node.NewChordNode(address, CustomPut)
+	//node1 := node.NewChordNode(address, CustomPut)
+	config := chord.DefaultConfig(address)
+	transport, err := chord.InitTCPTransport(address, 4*time.Second)
+	if err != nil {
+		log.Fatalf("Failed to create transport: %v", err)
+	}
 
 	// Create a directory this the address name if it doesnt exist already
 	err = os.Mkdir(address, os.ModePerm)
@@ -71,11 +88,11 @@ func mainWrapper(group *sync.WaitGroup) {
 
 	if found_ip != "" {
 		fmt.Println("Found storage node, joining the ring")
-		node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
-		go ServeChordWrapper(node1, node2, group)
+		//node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
+		go ServeChordWrapper(config, transport, address, found_ip+":"+fmt.Sprint(found_port))
 	} else {
 		fmt.Println("No storage node found, starting a new ring")
-		go ServeChordWrapper(node1, nil, group)
+		go ServeChordWrapper(config, transport, address, "")
 	}
 
 	common.ThreadBroadListen(strconv.Itoa(port), role)

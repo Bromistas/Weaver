@@ -44,18 +44,18 @@ services:
       - "10006:9000"
       - "10008:9001"
     command: sh -c "sleep 3 && /queue"
-
-  scrapper:
-    image: scrapper:1.0
-    environment:
-      - PORT=10000
-      - ROLE=SCRAPPER
-    ports:
-      - "10007:11000"
-    command: sh -c "sleep 3 && /scrapper"
-  #
-  client:
-    image: client:1.0
+#
+#  scrapper:
+#    image: scrapper:1.0
+#    environment:
+#      - PORT=10000
+#      - ROLE=SCRAPPER
+#    ports:
+#      - "10007:11000"
+#    command: sh -c "sleep 3 && /scrapper"
+#  #
+#  client:
+#    image: client:1.0
 
   init:
     image: busybox
