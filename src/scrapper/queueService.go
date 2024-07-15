@@ -138,6 +138,7 @@ func (q *QueueServiceClient) Listen(tickDuration time.Duration, node *ScrapperNo
 			if err != nil {
 				return err
 			}
+
 			if message.Body != "" {
 				messageHandler(node, message.Body)
 			}
@@ -152,7 +153,7 @@ func messageHandler(node *ScrapperNode, message string) {
 	var urlMessage common.URLMessage
 	err := json.Unmarshal([]byte(message), &urlMessage)
 	if err != nil {
-		log.Printf("Error unmarshalling message: %s", err)
+		log.Printf("Error unmarshalling URLMessage: %v", err)
 		return
 	}
 

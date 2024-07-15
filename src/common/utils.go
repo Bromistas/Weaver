@@ -1,10 +1,10 @@
 package common
 
 import (
+	"encoding/json"
+	"log"
 	"net"
-	"os"
 	"sort"
-	"syscall"
 )
 
 func insertIntoSorted(slice []int, item int) []int {
@@ -39,41 +39,48 @@ func CompareIPs(ip1, ip2 net.IP) int {
 	return 0
 }
 
-func createReusableUDPConn(port string) (net.PacketConn, error) {
-	// Resolve the address
-	addr, err := net.ResolveUDPAddr("udp4", ":"+port)
+type queueMessageFormat struct {
+	Message string `json:"message"`
+}
+
+func EncodeURLMessage(urlMessage URLMessage) ([]byte, error) {
+	// Step 1: Marshal the URLMessage into a JSON string
+	urlMessageJSON, err := json.Marshal(urlMessage)
 	if err != nil {
+		log.Printf("Error marshalling URLMessage: %v", err)
 		return nil, err
 	}
 
-	// Create the UDP socket
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP)
-	if err != nil {
-		return nil, os.NewSyscallError("socket", err)
+	// Step 2: Construct the new struct with the marshalled URLMessage as the Message property
+	queueMessage := queueMessageFormat{
+		Message: string(urlMessageJSON),
 	}
 
-	// Set SO_REUSEADDR to allow multiple applications to listen on the same port
-	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	// Step 3: Marshal the new struct into a JSON string
+	queueMessageJSON, err := json.Marshal(queueMessage)
 	if err != nil {
-		syscall.Close(fd)
-		return nil, os.NewSyscallError("setsockopt", err)
-	}
-
-	// Bind the socket to the address
-	err = syscall.Bind(fd, &syscall.SockaddrInet4{Port: addr.Port})
-	if err != nil {
-		syscall.Close(fd)
-		return nil, os.NewSyscallError("bind", err)
-	}
-
-	// Convert the file descriptor back to a net.PacketConn
-	file := os.NewFile(uintptr(fd), "")
-	conn, err := net.FilePacketConn(file)
-	if err != nil {
-		syscall.Close(fd)
+		log.Printf("Error marshalling queue message: %v", err)
 		return nil, err
 	}
-	file.Close() // Close the file to avoid leaking the file descriptor.
 
-	return conn, nil
+	return queueMessageJSON, nil
+}
+
+// DecodeMessage decodes a JSON string into a URLMessage
+func DecodeMessage(jsonStr string) (URLMessage, error) {
+	var qm queueMessageFormat
+	err := json.Unmarshal([]byte(jsonStr), &qm)
+	if err != nil {
+		log.Printf("Error unmarshalling queue message: %v", err)
+		return URLMessage{}, err
+	}
+
+	var urlMessage URLMessage
+	err = json.Unmarshal([]byte(qm.Message), &urlMessage)
+	if err != nil {
+		log.Printf("Error unmarshalling URLMessage: %v", err)
+		return URLMessage{}, err
+	}
+
+	return urlMessage, nil
 }

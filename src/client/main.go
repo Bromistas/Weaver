@@ -97,8 +97,8 @@ func scrap(params []string) {
 	neweggURL := fmt.Sprintf("https://www.newegg.com/p/pl?d=%s", url.QueryEscape(query))
 
 	// Create URL messages for Amazon and Newegg with the appropriate types
-	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.AmazonRoot}
-	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.NeweggRoot}
+	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.Dummy}
+	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.Dummy}
 
 	// Insert Amazon and Newegg URL messages into the queue
 	insertIntoQueue(amazonURLMessage)
@@ -111,7 +111,7 @@ func scrap(params []string) {
 func insertIntoQueue(urlMessage common.URLMessage) {
 	baseUrl := getQueueUrl()
 	url := fmt.Sprintf("http://%s:9000/put", baseUrl)
-	jsonBody, err := json.Marshal(urlMessage)
+	jsonBody, err := common.EncodeURLMessage(urlMessage)
 	failOnError(err, "Failed to marshal JSON")
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
