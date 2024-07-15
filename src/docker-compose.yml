@@ -26,24 +26,24 @@ services:
     ports:
       - "10003:10000"
     command: sh -c "sleep 4 && /storage"
-  queue1:
-    image: queue:1.0
-    environment:
-      - PORT=9000
-      - ROLE=QUEUE
-    ports:
-      - "10005:9000"
-      - "10004:9001"
-
-  queue2:
-    image: queue:1.0
-    environment:
-      - PORT=9000
-      - ROLE=QUEUE
-    ports:
-      - "10006:9000"
-      - "10008:9001"
-    command: sh -c "sleep 3 && /queue"
+#  queue1:
+#    image: queue:1.0
+#    environment:
+#      - PORT=9000
+#      - ROLE=QUEUE
+#    ports:
+#      - "10005:9000"
+#      - "10004:9001"
+#
+#  queue2:
+#    image: queue:1.0
+#    environment:
+#      - PORT=9000
+#      - ROLE=QUEUE
+#    ports:
+#      - "10006:9000"
+#      - "10008:9001"
+#    command: sh -c "sleep 3 && /queue"
 #
 #  scrapper:
 #    image: scrapper:1.0

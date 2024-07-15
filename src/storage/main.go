@@ -87,11 +87,11 @@ func mainWrapper(group *sync.WaitGroup) {
 	}
 
 	if found_ip != "" {
-		fmt.Println("Found storage node, joining the ring")
+		log.Printf("Found storage node, joining the ring %s", found_ip)
 		//node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
 		go ServeChordWrapper(config, transport, address, found_ip+":"+fmt.Sprint(found_port))
 	} else {
-		fmt.Println("No storage node found, starting a new ring")
+		log.Println("No storage node found, starting a new ring")
 		go ServeChordWrapper(config, transport, address, "")
 	}
 

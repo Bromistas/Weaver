@@ -93,66 +93,6 @@ var (
 	n *node.ChordNode
 )
 
-// Create a function that will constantly ping the leaderAddr for healthchecks and when failed it will change its leader to be the element in the ring with the lowest id
-func (q *Queue) leaderAttention() {
-	time.Sleep(5 * time.Second)
-
-	for {
-		if q.leaderAddr == "" {
-			q.changeLeader(3 * time.Second)
-		}
-
-		// Create a healthcheck for q.leaderAddr
-		if q.leaderAddr == q.addr {
-			continue
-		}
-
-		url := fmt.Sprintf("http://%s/healthcheck", q.leaderAddr)
-		resp, err := http.Get(url)
-
-		if err != nil {
-			q.changeLeader(3 * time.Second)
-			fmt.Printf("error pinging leader: %s", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			q.changeLeader(3 * time.Second)
-		}
-
-		time.Sleep(1 * time.Second)
-		fmt.Printf("Current leader is: %s", q.leaderAddr)
-	}
-}
-
-func (q *Queue) changeLeader(waitTime time.Duration) {
-
-	//foundIp := ""
-	//foundPort := 0
-
-	//discoveryPort := "9001"
-	//discovered, err := common.NetDiscover(discoveryPort, "QUEUE", true)
-	//foundIp = discovered
-	//foundPort = 9000
-	//
-	//if err != nil {
-	//	log.Printf("Error discovering a leader: %s", err)
-	//}
-	//
-	//// Convert string IPs to net.IP
-	//discoveredNetIP := net.ParseIP(discovered)
-	//currentNetIP := net.ParseIP(q.addr)
-	//
-	//if common.CompareIPs(currentNetIP, discoveredNetIP) <= 0 {
-	//	q.leaderAddr = q.addr
-	//} else {
-	//	finalLeader := fmt.Sprintf("%s:%s", foundIp, strconv.Itoa(foundPort))
-	//	q.leaderAddr = finalLeader
-	//}
-
-	log.Printf("Final leader for node %s is: %s", q.addr, q.leaderAddr)
-}
-
 func putHandler(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Message string `json:"message"`
