@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-func (s ScrapperNode) DummyHandler(url string) {
+func (s *ScrapperNode) DummyHandler(url string) {
 	fmt.Println("Dummy Handler")
 	product := common.Product{}
 

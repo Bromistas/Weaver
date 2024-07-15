@@ -22,4 +22,5 @@ const (
 	NeweggProduct
 	NeweggRoot
 	AmazonRoot
+	Dummy
 )

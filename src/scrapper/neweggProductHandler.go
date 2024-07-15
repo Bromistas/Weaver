@@ -2,6 +2,6 @@ package main
 
 import "fmt"
 
-func NeweggProductHandler(url string) {
+func (s *ScrapperNode) NeweggProductHandler(url string) {
 	fmt.Println("Newegg Product Handler")
 }

@@ -159,9 +159,16 @@ func messageHandler(node *ScrapperNode, message string) {
 	// Step 2: Switch statement to redirect based on the URL type
 	switch urlMessage.URLType {
 	case common.AmazonRoot:
-		node.AmazonProductHandler(urlMessage.URL)
+		node.AmazonRootHandler(urlMessage.URL)
 	case common.NeweggRoot:
+		node.NeweggRootHandler(urlMessage.URL)
+	case common.AmazonProduct:
+		node.AmazonProductHandler(urlMessage.URL)
+	case common.NeweggProduct:
 		node.NeweggProductHandler(urlMessage.URL)
+	case common.Dummy:
+		node.DummyHandler(urlMessage.URL)
+
 	// Add more cases as needed
 	default:
 		log.Printf("Unknown URL type: %v", urlMessage.URLType)

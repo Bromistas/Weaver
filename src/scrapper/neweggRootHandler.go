@@ -2,6 +2,6 @@ package main
 
 import "fmt"
 
-func NeweggRootHandler(url string) {
+func (s *ScrapperNode) NeweggRootHandler(url string) {
 	fmt.Println("Newegg Root Handler")
 }

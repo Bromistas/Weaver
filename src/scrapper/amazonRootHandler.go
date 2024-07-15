@@ -2,6 +2,6 @@ package main
 
 import "fmt"
 
-func AmazonRootHandler(url string) {
+func (s *ScrapperNode) AmazonRootHandler(url string) {
 	fmt.Println("Amazon Root Handler")
 }
