@@ -19,6 +19,7 @@ COPY client/go.mod ./client/
 COPY rpc_node/go.mod ./rpc_node/
 COPY storage/go.mod ./storage/
 COPY queue/go.mod ./queue/
+COPY chord/go.mod ./chord/
 
 # Download all the dependencies
 RUN go mod download

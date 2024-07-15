@@ -2,12 +2,10 @@ package main
 
 import (
 	common "commons"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
-	"sync"
 )
 
 func (s *ScrapperNode) DummyHandler(url string) {
@@ -20,17 +18,23 @@ func (s *ScrapperNode) DummyHandler(url string) {
 	product.Description = "This is a description"
 	product.URL = url
 
-	body, err := json.Marshal(product)
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Printf("Inserting key with name %s and url %s", product.Name, product.URL)
+
+	//body, err := json.Marshal(product)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	addr := s.StorageAddress + ":" + strconv.Itoa(s.StoragePort)
+	err := insertProduct(product, addr)
+	if err != nil {
+		fmt.Printf("Error while inserting product %s: %s", product.Name, err.Error())
+		return
+	}
 
 	// Put to the database
-	group := &sync.WaitGroup{}
-	group.Add(1)
+	//group := &sync.WaitGroup{}
+	//group.Add(1)
 
-	log.Printf("Inserting key with name %s and url %s", product.Name, product.URL)
-	put_pair(addr, product.Name, string(body), group)
+	//put_pair(addr, product.Name, string(body), group)
 }

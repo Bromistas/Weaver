@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	ring *chord.Ring
 	addr string
 )
 
@@ -26,18 +27,24 @@ func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string
 	var err error
 
 	if bootstrap == "" {
-		_, err = chord.Create(conf, trans)
+		ring, err = chord.Create(conf, trans)
 		if err != nil {
 			log.Fatalf("Failed to create ring: %v", err)
 		} else {
 			log.Printf("Succesfully created the ring")
 		}
 	} else {
-		_, err = chord.Join(conf, trans, bootstrap)
-		if err != nil {
-			log.Fatalf("Failed to join ring: %v", err)
-		} else {
-			log.Printf("Successfully joined the network of %s", bootstrap)
+		for {
+			ring, err = chord.Join(conf, trans, bootstrap)
+			i := 0
+			if err != nil {
+				log.Printf("Failed to join ring attempt %d: %v", i, err)
+				time.Sleep(1 * time.Second)
+				i++
+			} else {
+				log.Printf("Successfully joined the network of %s", bootstrap)
+				break
+			}
 		}
 	}
 }
@@ -188,8 +195,32 @@ func gatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func insertHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST method
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read and parse the JSON payload
+	var payload common.Product
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	insertInStore(ring, payload, addr)
+
+	// Respond to the client
+	w.WriteHeader(http.StatusTemporaryRedirect)
+	//fmt.Fprintf(w, "File replicated successfully: %s\n", filename)
+	//log.Printf("File replicated successfully: %s\n", filename)
+}
+
 func setupServer(address string) *http.Server {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/insert", insertHandler)
 	mux.HandleFunc("/healthcheck", healthCheckHandler)
 	mux.HandleFunc("/replicate", replicateHandler)
 	mux.HandleFunc("/gather", gatherHandler)
@@ -201,6 +232,7 @@ func setupServer(address string) *http.Server {
 
 	return httpServer
 }
+
 func main() {
 	group := &sync.WaitGroup{}
 

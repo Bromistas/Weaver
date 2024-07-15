@@ -6,6 +6,7 @@ import (
 	common "commons"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Product struct {
@@ -107,19 +109,35 @@ func scrap(params []string) {
 	fmt.Println("Search URL messages inserted into queue successfully")
 }
 
-// insertIntoQueue inserts the given URL message into the queue
+// insertIntoQueue attempts to insert the given URL message into the queue, with retries on EOF error
 func insertIntoQueue(urlMessage common.URLMessage) {
 	baseUrl := getQueueUrl()
 	url := fmt.Sprintf("http://%s:9000/put", baseUrl)
 	jsonBody, err := common.EncodeURLMessage(urlMessage)
 	failOnError(err, "Failed to marshal JSON")
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
-	failOnError(err, "Failed to send POST request")
-	defer resp.Body.Close()
+	maxRetries := 3
+	backoff := 1 * time.Second
 
-	if resp.StatusCode != http.StatusNoContent {
-		log.Fatalf("Unexpected status code: %d", resp.StatusCode)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+		if err != nil {
+			if err == io.EOF && attempt < maxRetries-1 {
+				// If EOF error, retry after backoff
+				time.Sleep(backoff)
+				backoff *= 2 // Exponential backoff
+				continue
+			} else {
+				// For other errors or if retries exceeded, fail
+				failOnError(err, "Failed to send POST request")
+			}
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusNoContent {
+			log.Fatalf("Unexpected status code: %d", resp.StatusCode)
+		}
+		break // Break the loop if request was successful
 	}
 }
 

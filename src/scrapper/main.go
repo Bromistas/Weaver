@@ -31,8 +31,8 @@ func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 }
 
 func healthCheckStorage(node *ScrapperNode) {
+	storageService := NewStorageServiceClient(node.StorageAddress + ":" + strconv.Itoa(node.StoragePort))
 	for {
-		storageService := NewStorageServiceClient(node.StorageAddress + ":" + strconv.Itoa(node.StoragePort))
 		_, err := storageService.HealthCheck()
 		if err != nil {
 			log.Println("Storage service health check failed. Rediscovering...")

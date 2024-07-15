@@ -18,6 +18,7 @@ COPY scrapper/go.mod scrapper/go.sum ./scrapper/
 COPY rpc_node/go.mod ./rpc_node/
 COPY storage/go.mod ./storage/
 COPY queue/go.mod ./queue/
+COPY chord/go.mod ./chord/
 COPY client/go.mod ./client/
 
 # Download all the dependencies
