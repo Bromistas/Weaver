@@ -89,8 +89,10 @@ func processInput(input string) {
 	switch command {
 	case "scrap":
 		scrap(params)
+	case "gather":
+		gather()
 	case "help":
-		fmt.Println("Available commands: hello, echo, help, exit")
+		fmt.Println("Available commands: scrap, gather, help, exit")
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 	}

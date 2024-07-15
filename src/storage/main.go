@@ -24,9 +24,11 @@ func ServeChordWrapper(n *node.ChordNode, bootstrap *node.ChordNode, group *sync
 	log.Printf("[*] Node %s started", n.Address)
 	go ReplicateData(context.Background(), n, 5*time.Second)
 
-	// Create your HTTP server
+	// Create your HTTP server with the custom ServeMux
+	mux := setupServer()
 	httpServer := &http.Server{
-		Handler: http.HandlerFunc(replicateHandler),
+		Addr:    n.Address,
+		Handler: mux,
 	}
 
 	node.ServeChord(context.Background(), n, bootstrap, group, nil, httpServer)
@@ -130,11 +132,11 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func gatherHandler(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET method
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	//// Only allow GET method
+	//if r.Method != http.MethodGet {
+	//	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	//	return
+	//}
 
 	// Read directory
 	files, err := ioutil.ReadDir(addr)
@@ -171,12 +173,13 @@ func gatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setupServer() {
-	http.HandleFunc("/healthcheck", healthCheckHandler)
-	http.HandleFunc("/replicate", replicateHandler)
-	http.HandleFunc("/gather", gatherHandler)
+func setupServer() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthcheck", healthCheckHandler)
+	mux.HandleFunc("/replicate", replicateHandler)
+	mux.HandleFunc("/gather", gatherHandler)
+	return mux
 }
-
 func main() {
 	group := &sync.WaitGroup{}
 
