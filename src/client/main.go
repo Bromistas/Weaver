@@ -6,10 +6,13 @@ import (
 	common "commons"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 type Product struct {
@@ -18,6 +21,7 @@ type Product struct {
 	URL         string
 	Description string
 	Rating      string
+	Addresses   []string
 }
 
 func failOnError(err error, msg string) {
@@ -40,12 +44,12 @@ const (
 )
 
 func getQueueUrl() string {
-	foundAddr, err := common.NetDiscover("9000", "QUEUE", true)
-	if err != nil || foundAddr == "" {
+	foundAddr, err := common.NetDiscover("9000", "QUEUE", true, false)
+	if err != nil || foundAddr[0] == "" {
 		log.Fatalf("Not found queue %s", err)
 	}
 
-	return foundAddr
+	return foundAddr[0]
 }
 
 func main() {
@@ -94,11 +98,25 @@ func processInput(input string) {
 
 func scrap(params []string) {
 	if len(params) != 1 {
-		fmt.Println("Usage: cli scrap <url>")
+		fmt.Println("Usage: cli scrap <query>")
 		return
 	}
 
-	urlToScrap := params[0]
+	query := params[0]
+	// Construct search URLs for Amazon and Newegg
+	amazonURL := fmt.Sprintf("https://www.amazon.com/s?k=%s", url.QueryEscape(query))
+	neweggURL := fmt.Sprintf("https://www.newegg.com/p/pl?d=%s", url.QueryEscape(query))
+
+	// Insert Amazon search URL into the queue
+	insertIntoQueue(amazonURL)
+	// Insert Newegg search URL into the queue
+	insertIntoQueue(neweggURL)
+
+	fmt.Println("Search URLs inserted into queue successfully")
+}
+
+// insertIntoQueue inserts the given URL into the queue
+func insertIntoQueue(urlToScrap string) {
 	baseUrl := getQueueUrl()
 	url := fmt.Sprintf("http://%s:9000/put", baseUrl)
 	body := map[string]string{"message": urlToScrap}
@@ -112,6 +130,60 @@ func scrap(params []string) {
 	if resp.StatusCode != http.StatusNoContent {
 		log.Fatalf("Unexpected status code: %d", resp.StatusCode)
 	}
+}
 
-	fmt.Println("URL scrapped successfully")
+func gather() {
+	storeIps, err := common.NetDiscover("10000", "STORAGE", false, true)
+	if err != nil {
+		log.Fatalf("Error while discovering storage nodes %s", err.Error())
+	}
+
+	productMap := make(map[string]*Product)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, ip := range storeIps {
+		wg.Add(1)
+		go func(ip string) {
+			defer wg.Done()
+			url := fmt.Sprintf("http://%s:10000/gather", ip)
+			resp, err := http.Get(url)
+			if err != nil {
+				log.Printf("Error fetching from %s: %s", ip, err.Error())
+				return
+			}
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("Error reading response from %s: %s", ip, err.Error())
+				return
+			}
+
+			var products []Product
+			if err := json.Unmarshal(body, &products); err != nil {
+				log.Printf("Error unmarshalling response from %s: %s", ip, err.Error())
+				return
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			for _, product := range products {
+				if existingProduct, ok := productMap[product.URL]; ok {
+					existingProduct.Addresses = append(existingProduct.Addresses, ip)
+				} else {
+					product.Addresses = []string{ip}
+					productMap[product.URL] = &product
+				}
+			}
+		}(ip)
+	}
+
+	wg.Wait()
+
+	// Printing the table
+	fmt.Println("URL\tName\tDescription\tPrice\tAddresses")
+	for _, product := range productMap {
+		fmt.Printf("%s\t%s\t%s\t%.2f\t%s\n", product.URL, product.Name, product.Description, product.Price, product.Addresses)
+	}
+
 }

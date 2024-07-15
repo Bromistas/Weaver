@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"node"
@@ -128,9 +129,52 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("File replicated successfully: %s\n", filename)
 }
 
+func gatherHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow GET method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read directory
+	files, err := ioutil.ReadDir(addr)
+	if err != nil {
+		http.Error(w, "Failed to read directory", http.StatusInternalServerError)
+		return
+	}
+
+	var products []common.Product
+
+	// Iterate over files
+	for _, file := range files {
+		if filepath.Ext(file.Name()) == ".json" {
+			// Open and decode JSON
+			fp := filepath.Join(addr, file.Name())
+			data, err := os.ReadFile(fp)
+			if err != nil {
+				continue // Skip files that can't be read
+			}
+
+			var product common.Product
+			if err := json.Unmarshal(data, &product); err != nil {
+				continue // Skip files that can't be decoded
+			}
+
+			products = append(products, product)
+		}
+	}
+
+	// Respond with JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(products); err != nil {
+		http.Error(w, "Failed to encode products", http.StatusInternalServerError)
+	}
+}
+
 func setupServer() {
 	http.HandleFunc("/healthcheck", healthCheckHandler)
 	http.HandleFunc("/replicate", replicateHandler)
+	http.HandleFunc("/gather", gatherHandler)
 }
 
 func main() {
