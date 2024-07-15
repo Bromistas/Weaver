@@ -147,5 +147,23 @@ func (q *QueueServiceClient) Listen(tickDuration time.Duration, node *ScrapperNo
 
 func messageHandler(node *ScrapperNode, message string) {
 	log.Printf("[?] Received message: %s\n", message)
-	node.AmazonProductHandler(message)
+
+	// Step 1: Unmarshal the message
+	var urlMessage common.URLMessage
+	err := json.Unmarshal([]byte(message), &urlMessage)
+	if err != nil {
+		log.Printf("Error unmarshalling message: %s", err)
+		return
+	}
+
+	// Step 2: Switch statement to redirect based on the URL type
+	switch urlMessage.URLType {
+	case common.AmazonRoot:
+		node.AmazonProductHandler(urlMessage.URL)
+	case common.NeweggRoot:
+		node.NeweggProductHandler(urlMessage.URL)
+	// Add more cases as needed
+	default:
+		log.Printf("Unknown URL type: %v", urlMessage.URLType)
+	}
 }

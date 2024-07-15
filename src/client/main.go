@@ -30,19 +30,6 @@ func failOnError(err error, msg string) {
 	}
 }
 
-type URLMessage struct {
-	URL     string
-	URLType URLType
-}
-
-type URLType int
-
-const (
-	AmazonProduct URLType = iota
-	NeweggProduct
-	NeweggRoot
-)
-
 func getQueueUrl() string {
 	foundAddr, err := common.NetDiscover("9000", "QUEUE", true, false)
 	if err != nil || foundAddr[0] == "" {
@@ -109,20 +96,22 @@ func scrap(params []string) {
 	amazonURL := fmt.Sprintf("https://www.amazon.com/s?k=%s", url.QueryEscape(query))
 	neweggURL := fmt.Sprintf("https://www.newegg.com/p/pl?d=%s", url.QueryEscape(query))
 
-	// Insert Amazon search URL into the queue
-	insertIntoQueue(amazonURL)
-	// Insert Newegg search URL into the queue
-	insertIntoQueue(neweggURL)
+	// Create URL messages for Amazon and Newegg with the appropriate types
+	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.AmazonRoot}
+	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.NeweggRoot}
 
-	fmt.Println("Search URLs inserted into queue successfully")
+	// Insert Amazon and Newegg URL messages into the queue
+	insertIntoQueue(amazonURLMessage)
+	insertIntoQueue(neweggURLMessage)
+
+	fmt.Println("Search URL messages inserted into queue successfully")
 }
 
-// insertIntoQueue inserts the given URL into the queue
-func insertIntoQueue(urlToScrap string) {
+// insertIntoQueue inserts the given URL message into the queue
+func insertIntoQueue(urlMessage common.URLMessage) {
 	baseUrl := getQueueUrl()
 	url := fmt.Sprintf("http://%s:9000/put", baseUrl)
-	body := map[string]string{"message": urlToScrap}
-	jsonBody, err := json.Marshal(body)
+	jsonBody, err := json.Marshal(urlMessage)
 	failOnError(err, "Failed to marshal JSON")
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))

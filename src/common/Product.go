@@ -9,3 +9,17 @@ type Product struct {
 	NodeAuthor  string  `json:"node_author"`
 	Replicated  bool    `json:"replicated"`
 }
+
+type URLMessage struct {
+	URL     string
+	URLType URLType
+}
+
+type URLType int
+
+const (
+	AmazonProduct URLType = iota
+	NeweggProduct
+	NeweggRoot
+	AmazonRoot
+)

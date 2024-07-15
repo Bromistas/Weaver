@@ -10,31 +10,15 @@ import (
 	"sync"
 )
 
-func (s ScrapperNode) AmazonProductHandler(url string) {
-	fmt.Println("Amazon Product Handler")
-
-	// Scrap and create a product with name, price and rating
-	// Send the product to the storage service
-
-	//c := colly.NewCollector()
+func (s ScrapperNode) DummyHandler(url string) {
+	fmt.Println("Dummy Handler")
 	product := common.Product{}
-	//
-	//c.OnHTML("#productTitle", func(e *colly.HTMLElement) {
-	//	if strings.TrimSpace(e.Text) != "" {
-	//		product.Name = strings.TrimSpace(e.Text)
-	//	}
-	//})
 
 	product.Name = strconv.Itoa(rand.Int())
 	product.Price = 12.31
 	product.Rating = "4.5"
 	product.Description = "This is a description"
 	product.URL = url
-
-	//err := c.Visit(url)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 
 	body, err := json.Marshal(product)
 	if err != nil {
