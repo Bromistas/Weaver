@@ -98,7 +98,7 @@ func scrap(params []string) {
 
 	// Create URL messages for Amazon and Newegg with the appropriate types
 	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.Dummy}
-	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.Dummy}
+	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.NeweggRoot}
 
 	// Insert Amazon and Newegg URL messages into the queue
 	insertIntoQueue(amazonURLMessage)

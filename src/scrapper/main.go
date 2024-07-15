@@ -45,6 +45,8 @@ func healthCheckStorage(node *ScrapperNode) {
 func discoverQueue(node *ScrapperNode) {
 	for {
 		foundAddr, _ := common.NetDiscover("9000", "QUEUE", false, true)
+		node.QueueAddress = foundAddr[0]
+		node.QueuePort = 9000
 		globalQueueAddressesMutex.Lock()
 		for _, addr := range foundAddr {
 			if _, exists := globalQueueAddresses[addr]; !exists {
