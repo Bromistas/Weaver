@@ -2,12 +2,11 @@ package main
 
 import (
 	common "commons"
-	"encoding/json"
+	"fmt"
 	"github.com/gocolly/colly/v2"
 	"log"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 func (s *ScrapperNode) NeweggProductHandler(url string) {
@@ -46,13 +45,9 @@ func (s *ScrapperNode) NeweggProductHandler(url string) {
 	// Put the product in the database
 	addr := s.StorageAddress + ":" + strconv.Itoa(s.StoragePort)
 	// Marshal and stringify product
-	marshal, err := json.Marshal(product)
-	if err != nil {
-		log.Printf("Failed to marshal product: %v", err)
-	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	put_pair(addr, product.Name, string(marshal), wg)
-	wg.Wait()
+	err = insertProduct(product, addr)
+	if err != nil {
+		fmt.Printf("Error while inserting product: %s", err)
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -27,24 +28,43 @@ func NewQueueServiceClient(baseURL string) *QueueServiceClient {
 }
 
 func (q *QueueServiceClient) Put(message string) error {
-	url := fmt.Sprintf("http://%s/put", q.baseURL)
+	temp := strings.Split(q.baseURL, ":")[0]
+	url := fmt.Sprintf("http://%s:9001/put", temp)
 	body := map[string]string{"message": message}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
+		fmt.Printf("error while marshaling message: %s", message)
 		return err
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	// Retry mechanism
+	const maxRetries = 5
+	const initialBackoff = time.Second
+
+	var resp *http.Response
+	var attempt int
+
+	for attempt = 0; attempt < maxRetries; attempt++ {
+		resp, err = http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+		if err == nil && resp.StatusCode == http.StatusNoContent {
+			// Success
+			defer resp.Body.Close()
+			return nil
+		}
+
+		// If an error occurred or unexpected status code, wait and retry
+		time.Sleep(initialBackoff * time.Duration(1<<attempt))
+	}
+
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusNoContent {
+	if resp != nil {
+		defer resp.Body.Close()
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	return nil
+	return fmt.Errorf("failed to send request after %d attempts", maxRetries)
 }
 
 func (q *QueueServiceClient) Pop() (common.Message, error) {
