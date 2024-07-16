@@ -22,7 +22,7 @@ var (
 
 func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string, bootstrap string) {
 	log.Printf("[*] Node %s started", address)
-	// go ReplicateData(context.Background(), n, 5*time.Second)
+	//go ReplicateData(context.Background(), n, 5*time.Second)
 
 	var err error
 
@@ -47,6 +47,7 @@ func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string
 			}
 		}
 	}
+
 }
 
 func mainWrapper(group *sync.WaitGroup) {
@@ -64,8 +65,7 @@ func mainWrapper(group *sync.WaitGroup) {
 	addr = address
 	//node1 := node.NewChordNode(address, CustomPut)
 	config := chord.DefaultConfig(address)
-	server := setupServer(address)
-	transport, err := chord.InitTCPTransport(address, 4*time.Second, server)
+	transport, err := chord.InitTCPTransport(address, 4*time.Second)
 
 	if err != nil {
 		log.Fatalf("Failed to create transport: %v", err)
@@ -93,10 +93,19 @@ func mainWrapper(group *sync.WaitGroup) {
 
 	if found_ip != "" {
 		log.Printf("Found storage node, joining the ring %s", found_ip)
+		server := setupServer("0.0.0.0:" + strconv.Itoa(port+1))
+		log.Printf("Starting http server on %s + 1", address)
+		go server.ListenAndServe()
+
 		//node2 := node.NewChordNode(found_ip+":"+fmt.Sprint(found_port), CustomPut)
 		go ServeChordWrapper(config, transport, address, found_ip+":"+fmt.Sprint(found_port))
 	} else {
 		log.Println("No storage node found, starting a new ring")
+
+		server := setupServer("0.0.0.0:" + strconv.Itoa(port+1))
+		log.Printf("Starting http server on %s + 1", address)
+		go server.ListenAndServe()
+
 		go ServeChordWrapper(config, transport, address, "")
 	}
 

@@ -25,7 +25,7 @@ func discoverStorage(node *ScrapperNode, panicOnFail bool) {
 	foundAddr, _ := common.NetDiscover(port, "STORAGE", false, false)
 
 	node.StorageAddress = foundAddr[0]
-	node.StoragePort = 10000
+	node.StoragePort = 10001
 
 	log.Printf("Found storage node with address %s", node.StorageAddress)
 }
@@ -69,8 +69,8 @@ func readFromQueue(queueService *QueueServiceClient, node *ScrapperNode, wg *syn
 }
 
 func startReadingFromQueue(addr string, node *ScrapperNode) {
-	log.Printf("Starting to read from new queue: %s", addr+":9000")
-	queueService := NewQueueServiceClient(addr + ":9000")
+	log.Printf("Starting to read from new queue: %s", addr+":9001")
+	queueService := NewQueueServiceClient(addr + ":9001")
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go readFromQueue(queueService, node, &wg, addr)

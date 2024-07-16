@@ -5,13 +5,23 @@ import (
 	common "commons"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 )
 
 func insertInStore(ring *chord.Ring, product common.Product, host string) {
 	key := []byte(product.Name)
 	closestAddr := lookupKey(ring, key, host)
 
-	err := SendProductRequest(product, closestAddr)
+	ip := strings.Split(closestAddr, ":")[0]
+	port := strings.Split(closestAddr, ":")[1]
+	intPort, err := strconv.Atoi(port)
+	if err != nil {
+		fmt.Printf("Error while converting port to int: %s", err)
+		return
+	}
+
+	err = SendProductRequest(product, ip+":"+strconv.Itoa(intPort+1))
 	if err != nil {
 		fmt.Printf("Error while sending the insertion request for %s: %s", product.Name, err)
 		return

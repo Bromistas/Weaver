@@ -112,7 +112,8 @@ func scrap(params []string) {
 // insertIntoQueue attempts to insert the given URL message into the queue, with retries on EOF error
 func insertIntoQueue(urlMessage common.URLMessage) {
 	baseUrl := getQueueUrl()
-	url := fmt.Sprintf("http://%s:9000/put", baseUrl)
+
+	url := fmt.Sprintf("http://%s:9001/put", baseUrl)
 	jsonBody, err := common.EncodeURLMessage(urlMessage)
 	failOnError(err, "Failed to marshal JSON")
 
@@ -155,18 +156,13 @@ func gather() {
 
 	for _, ip := range storeIps {
 		wg.Add(1)
+		// Modify the original goroutine to use the retry mechanism
 		go func(ip string) {
 			defer wg.Done()
-			url := fmt.Sprintf("http://%s:10000/gather", ip)
-			resp, err := http.Get(url)
+			url := fmt.Sprintf("http://%s:10001/gather", ip)
+			body, err := doRequestWithRetry(url, 3) // Retry up to 3 times
 			if err != nil {
 				log.Printf("Error fetching from %s: %s", ip, err.Error())
-				return
-			}
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				log.Printf("Error reading response from %s: %s", ip, err.Error())
 				return
 			}
 
@@ -214,4 +210,30 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
+}
+
+func doRequestWithRetry(url string, maxRetries int) ([]byte, error) {
+	var resp *http.Response
+	var err error
+	backoff := 1 * time.Second // Initial backoff duration
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		resp, err = http.Get(url)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				return body, nil
+			}
+		}
+		if attempt < maxRetries-1 {
+			time.Sleep(backoff)
+			backoff *= 2 // Exponential backoff
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}
+
+	return nil, err // Return the last error encountered
 }

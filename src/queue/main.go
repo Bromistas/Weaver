@@ -157,7 +157,6 @@ func serveChordWrapper(conf *chord.Config, trans chord.Transport, address string
 			log.Printf("Succesfully created the ring")
 		}
 	} else {
-		log.Printf("bootstrap: ")
 		_, err = chord.Join(conf, trans, bootstrap)
 		if err != nil {
 			log.Fatalf("Failed to join ring: %v", err)
@@ -201,11 +200,18 @@ func mainWrapper(group *sync.WaitGroup) {
 	address += ":" + strconv.Itoa(port)
 
 	config := chord.DefaultConfig(address)
-	server := setupServer(address)
-	transport, err := chord.InitTCPTransport(address, 4*time.Second, server)
+	transport, err := chord.InitTCPTransport(address, 6*time.Second)
 	if err != nil {
 		log.Fatalf("Failed to create transport: %v", err)
 	}
+
+	server := setupServer(q.addr + ":" + strconv.Itoa(port+1))
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
 
 	// Create a directory this the address name if it doesnt exist already
 	err = os.Mkdir(address, os.ModePerm)
