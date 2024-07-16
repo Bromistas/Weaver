@@ -97,7 +97,7 @@ func scrap(params []string) {
 	neweggURL := fmt.Sprintf("https://www.newegg.com/p/pl?d=%s", url.QueryEscape(query))
 
 	// Create URL messages for Amazon and Newegg with the appropriate types
-	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.Dummy}
+	amazonURLMessage := common.URLMessage{URL: amazonURL, URLType: common.AmazonRoot}
 	neweggURLMessage := common.URLMessage{URL: neweggURL, URLType: common.NeweggRoot}
 
 	// Insert Amazon and Newegg URL messages into the queue
