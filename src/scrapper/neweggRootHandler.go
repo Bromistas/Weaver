@@ -17,7 +17,7 @@ func (s *ScrapperNode) NeweggRootHandler(url string) {
 
 	// Find and visit all links
 	c.OnHTML(".item-container", func(e *colly.HTMLElement) {
-		if len(productURLs) < 3 {
+		if len(productURLs) < 6 {
 			productURL := e.ChildAttr(".item-title", "href")
 			productURLs = append(productURLs, productURL)
 		}
