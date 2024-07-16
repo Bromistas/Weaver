@@ -63,7 +63,9 @@ func (vn *localVnode) stabilize() {
 
 	// Check for new successor
 	if err := vn.checkNewSuccessor(); err != nil {
-		log.Printf("[ERR] Error checking for new successor: %s", err)
+		if err.Error() != "EOF" {
+			log.Printf("[ERR] Error checking for new successor: %s", err)
+		}
 	}
 
 	// Notify the successor
@@ -78,7 +80,9 @@ func (vn *localVnode) stabilize() {
 
 	// Check the Predecessor
 	if err := vn.checkPredecessor(); err != nil {
-		log.Printf("[ERR] Error checking Predecessor: %s", err)
+		if err.Error() != "EOF" {
+			log.Printf("[ERR] Error checking Predecessor: %s", err)
+		}
 	}
 
 	// Set the last stabilized time

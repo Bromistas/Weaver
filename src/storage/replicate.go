@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"chord"
 	common "commons"
 	"context"
 	"encoding/json"
@@ -14,6 +15,50 @@ import (
 	"path/filepath"
 	"time"
 )
+
+var previousSuccessors map[string][]string
+
+func init() {
+	previousSuccessors = make(map[string][]string)
+}
+
+func lookupAndReplicateIfNecessary(ring *chord.Ring, product *common.Product) {
+	currentSuccessors, err := ring.Lookup(3, []byte(product.Name))
+	if err != nil {
+		log.Fatalf("Lookup failed: %v", err)
+	}
+
+	currentSuccessorAddresses := make([]string, 3)
+	for i, succ := range currentSuccessors {
+		currentSuccessorAddresses[i] = succ.Host
+	}
+
+	previousSuccessorAddresses, found := previousSuccessors[product.Name]
+
+	if !found || !equalSuccessors(previousSuccessorAddresses, currentSuccessorAddresses) {
+		// Successors have changed or this is the first lookup
+		for _, address := range currentSuccessorAddresses {
+			err := replicateProduct(address, *product)
+			if err != nil {
+				return
+			}
+		}
+		// Update the previous successors map
+		previousSuccessors[product.Name] = currentSuccessorAddresses
+	}
+}
+
+func equalSuccessors(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
 
 func replicateProduct(endpoint string, product common.Product) error {
 
@@ -46,6 +91,9 @@ func replicateProduct(endpoint string, product common.Product) error {
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
 	}
+
+	// Print replicated data with endpoint
+	log.Printf("Replicated data %s with endpoint %s\n", product.Name, endpoint)
 
 	return nil
 }
@@ -132,35 +180,58 @@ func replicateOnPredChange(ctx context.Context, n *node.ChordNode, predecessor *
 	}
 }
 
-func ReplicateData(ctx context.Context, n *node.ChordNode, interval time.Duration) {
-	var lastPredecessor = &node.ChordNode{Address: n.Address}
+func ReplicateData(ctx context.Context, n *chord.Ring, address string, interval time.Duration) {
+
+	//lastPredecessor := &node.ChordNode{}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		predecessor, err := n.FindPredecessor(ctx, n)
-
-		if err != nil {
-			log.Fatalf("Failed to find successor: %v", err)
-		}
-
-		if predecessor == nil {
-			continue
-		}
-
-		files, err := ioutil.ReadDir("./" + n.Address)
+		files, err := ioutil.ReadDir("./" + address)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		// If predecessor change then replicate, else only replicate new files
-		if predecessor.Address != lastPredecessor.Address {
-			log.Printf("Identified different predecessor. Current: %v, Last: %v, Node address: %v\n", predecessor.Address, lastPredecessor.Address, n.Address)
-			replicateOnPredChange(ctx, n, predecessor, files)
-			lastPredecessor = predecessor
-		} else {
-			replicateNewFiles(ctx, n, predecessor, files)
+		for _, file := range files {
+			if filepath.Ext(file.Name()) == ".json" {
+				data, err := ioutil.ReadFile(address + "/" + file.Name())
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				var product common.Product
+				err = json.Unmarshal(data, &product)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				// Check if the product was created by the current node
+				if product.NodeAuthor != address {
+					continue
+				}
+
+				lookupAndReplicateIfNecessary(n, &product)
+
+				//
+				//err = replicateProduct("http://"+predecessor.Address, product)
+				//if err != nil {
+				//	fmt.Printf("Error while replicating %s to %s: %s", product.Name, predecessor.Address, err.Error())
+				//	return
+				//}
+				//
+				//// Log replicated data
+				//log.Printf("Replicated data with predecessor %v, node address %v\n", predecessor.Address, n.Address)
+			}
 		}
+
+		//// If predecessor change then replicate, else only replicate new files
+		//if predecessor.Address != lastPredecessor.Address {
+		//	log.Printf("Identified different predecessor. Current: %v, Last: %v, Node address: %v\n", predecessor.Address, lastPredecessor.Address, n.Address)
+		//	replicateOnPredChange(ctx, n, predecessor, files)
+		//	lastPredecessor = predecessor
+		//} else {
+		//	replicateNewFiles(ctx, n, predecessor, files)
+		//}
 	}
 }

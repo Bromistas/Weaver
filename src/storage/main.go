@@ -3,6 +3,7 @@ package main
 import (
 	"chord"
 	"commons"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,7 +23,6 @@ var (
 
 func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string, bootstrap string) {
 	log.Printf("[*] Node %s started", address)
-	//go ReplicateData(context.Background(), n, 5*time.Second)
 
 	var err error
 
@@ -47,6 +47,8 @@ func ServeChordWrapper(conf *chord.Config, trans chord.Transport, address string
 			}
 		}
 	}
+
+	go ReplicateData(context.Background(), ring, addr, 5*time.Second)
 
 }
 
@@ -105,7 +107,6 @@ func mainWrapper(group *sync.WaitGroup) {
 		server := setupServer("0.0.0.0:" + strconv.Itoa(port+1))
 		log.Printf("Starting http server on %s + 1", address)
 		go server.ListenAndServe()
-
 		go ServeChordWrapper(config, transport, address, "")
 	}
 
@@ -219,7 +220,7 @@ func insertHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertInStore(ring, payload, addr)
+	insertInStore(ring, payload, addr, 3)
 
 	// Respond to the client
 	w.WriteHeader(http.StatusTemporaryRedirect)
