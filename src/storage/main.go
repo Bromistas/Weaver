@@ -143,6 +143,13 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 	filename := fmt.Sprintf("%s.json", payload.Name)
 	fp := filepath.Join(addr, filename)
 
+	if _, err := os.Stat(fp); err == nil {
+		// File exists, return "Ok" to the client
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "Already Replicated: Ok")
+		return
+	}
+
 	// Convert the payload to JSON
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
@@ -158,7 +165,7 @@ func replicateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond to the client
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "File replicated successfully: %s\n", filename)
 	log.Printf("File replicated successfully: %s\n", filename)
 }
@@ -223,7 +230,7 @@ func insertHandler(w http.ResponseWriter, r *http.Request) {
 	insertInStore(ring, payload, addr, 3)
 
 	// Respond to the client
-	w.WriteHeader(http.StatusTemporaryRedirect)
+	w.WriteHeader(http.StatusOK)
 	//fmt.Fprintf(w, "File replicated successfully: %s\n", filename)
 	//log.Printf("File replicated successfully: %s\n", filename)
 }

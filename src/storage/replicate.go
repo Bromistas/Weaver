@@ -13,6 +13,7 @@ import (
 	"node"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -88,7 +89,7 @@ func replicateProduct(endpoint string, product common.Product) error {
 	defer resp.Body.Close()
 
 	// Check the response status
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
 	}
 
@@ -149,10 +150,43 @@ func replicateNewFiles(ctx context.Context, n *node.ChordNode, predecessor *node
 	}
 }
 
-func replicateOnPredChange(ctx context.Context, n *node.ChordNode, predecessor *node.ChordNode, files []os.FileInfo) {
+//func replicateOnPredChange(ctx context.Context, n *node.ChordNode, predecessor *node.ChordNode, files []os.FileInfo) {
+//	for _, file := range files {
+//		if filepath.Ext(file.Name()) == ".json" {
+//			data, err := ioutil.ReadFile(n.Address + "/" + file.Name())
+//			if err != nil {
+//				log.Fatal(err)
+//			}
+//
+//			var product common.Product
+//			err = json.Unmarshal(data, &product)
+//			if err != nil {
+//				log.Fatal(err)
+//			}
+//
+//			// Check if the product was created by the current node
+//			if product.NodeAuthor != n.Address {
+//				continue
+//			}
+//
+//			err = replicateProduct("http://"+predecessor.Address, product)
+//			if err != nil {
+//				fmt.Printf("Error while replicating %s to %s: %s", product.Name, predecessor.Address, err.Error())
+//				return
+//			}
+//
+//			// Log replicated data
+//			log.Printf("Replicated data with predecessor %v, node address %v\n", predecessor.Address, n.Address)
+//		}
+//	}
+//}
+
+func blackholeReplicate(ring *chord.Ring, host string, files []os.FileInfo) {
+	// Get all the storage nodes
+
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".json" {
-			data, err := ioutil.ReadFile(n.Address + "/" + file.Name())
+			data, err := os.ReadFile(host + "/" + file.Name())
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -163,21 +197,23 @@ func replicateOnPredChange(ctx context.Context, n *node.ChordNode, predecessor *
 				log.Fatal(err)
 			}
 
-			// Check if the product was created by the current node
-			if product.NodeAuthor != n.Address {
-				continue
-			}
+			storageNodes := getAllPredecessors(ring, []byte(product.Name))
 
-			err = replicateProduct("http://"+predecessor.Address, product)
-			if err != nil {
-				fmt.Printf("Error while replicating %s to %s: %s", product.Name, predecessor.Address, err.Error())
-				return
-			}
+			for _, address := range storageNodes {
 
-			// Log replicated data
-			log.Printf("Replicated data with predecessor %v, node address %v\n", predecessor.Address, n.Address)
+				fullEndpoint := "http://" + address + ":10001/replicate"
+				err = replicateProduct(fullEndpoint, product)
+				if err != nil {
+					fmt.Printf("Error while replicating %s to %s: %s\n", product.Name, fullEndpoint, err.Error())
+					continue
+				}
+
+				// Log replicated data
+				log.Printf("Replicated data with node %v, node address %v\n", address, host)
+			}
 		}
 	}
+
 }
 
 func ReplicateData(ctx context.Context, n *chord.Ring, address string, interval time.Duration) {
@@ -193,45 +229,43 @@ func ReplicateData(ctx context.Context, n *chord.Ring, address string, interval 
 			log.Fatal(err)
 		}
 
-		for _, file := range files {
-			if filepath.Ext(file.Name()) == ".json" {
-				data, err := ioutil.ReadFile(address + "/" + file.Name())
-				if err != nil {
-					log.Fatal(err)
-				}
+		// blachole replicate
+		blackholeReplicate(ring, address, files)
+	}
+}
 
-				var product common.Product
-				err = json.Unmarshal(data, &product)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				// Check if the product was created by the current node
-				if product.NodeAuthor != address {
-					continue
-				}
-
-				lookupAndReplicateIfNecessary(n, &product)
-
-				//
-				//err = replicateProduct("http://"+predecessor.Address, product)
-				//if err != nil {
-				//	fmt.Printf("Error while replicating %s to %s: %s", product.Name, predecessor.Address, err.Error())
-				//	return
-				//}
-				//
-				//// Log replicated data
-				//log.Printf("Replicated data with predecessor %v, node address %v\n", predecessor.Address, n.Address)
+func getAllPredecessors(ring *chord.Ring, key []byte) []string {
+	present := make(map[string]bool)
+	predecessors := make([]string, 0)
+	for _, n := range ring.Vnodes {
+		// Ping the predecessor if not nil plase
+		if n.Predecessor != nil {
+			ok, err := ring.Transport.Ping(n.Predecessor)
+			if err == nil && !present[n.Predecessor.Host] && ok {
+				present[n.Predecessor.Host] = true
+				predecessors = append(predecessors, n.Predecessor.Host)
 			}
 		}
-
-		//// If predecessor change then replicate, else only replicate new files
-		//if predecessor.Address != lastPredecessor.Address {
-		//	log.Printf("Identified different predecessor. Current: %v, Last: %v, Node address: %v\n", predecessor.Address, lastPredecessor.Address, n.Address)
-		//	replicateOnPredChange(ctx, n, predecessor, files)
-		//	lastPredecessor = predecessor
-		//} else {
-		//	replicateNewFiles(ctx, n, predecessor, files)
-		//}
 	}
+
+	// Call lookup to get the closest nodes
+	successors, err := ring.Lookup(8, key)
+	if err != nil {
+		log.Printf("Lookup failed: %v", err)
+	}
+
+	for _, succ := range successors {
+
+		if !present[succ.Host] {
+			present[succ.Host] = true
+			predecessors = append(predecessors, succ.Host)
+		}
+	}
+
+	// Just ot be safe go through every predecessor, split by : and get the first part
+	for i, pred := range predecessors {
+		predecessors[i] = strings.Split(pred, ":")[0]
+	}
+
+	return predecessors
 }

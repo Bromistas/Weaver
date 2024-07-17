@@ -239,7 +239,7 @@ func (vn *localVnode) checkPredecessor() error {
 		res, err := vn.Ring.Transport.Ping(vn.Predecessor)
 		if err != nil {
 
-			if strings.Contains(err.Error(), " connect: connection refuse") {
+			if strings.Contains(err.Error(), " connect: ") {
 				vn.Predecessor = nil
 			}
 
