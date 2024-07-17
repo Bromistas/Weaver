@@ -3,78 +3,59 @@ package main
 import (
 	common "commons"
 	"fmt"
+	"github.com/gocolly/colly/v2"
 	"log"
+	"strconv"
+	"strings"
 )
-
-const (
-	address1 = "127.0.0.1:50051"
-	address2 = "127.0.0.1:50052"
-	address3 = "127.0.0.1:50053"
-)
-
-func testingNode() {
-	//group := &sync.WaitGroup{}
-	//
-	//// Create three nodes
-	//node1 := node.NewChordNode(address1, nil)
-	//node2 := node.NewChordNode(address2, nil)
-	//node3 := node.NewChordNode(address3, nil)
-	//
-	//fmt.Println("Nodes created")
-	//
-	//// Start serving each node in a separate goroutine
-	//group.Add(1)
-	//go func() {
-	//	fmt.Println("Node1 started")
-	//	node.ServeChord(context.Background(), node1, nil, group, nil)
-	//	fmt.Println("Node1 joined the network")
-	//}()
-	//
-	//group.Add(1)
-	//go func() {
-	//	fmt.Println("Node2 started")
-	//	node.ServeChord(context.Background(), node2, node1, group, nil)
-	//	fmt.Println("Node2 joined the network")
-	//}()
-	//
-	//group.Add(1)
-	//go func() {
-	//	fmt.Println("Node3 started")
-	//	node.ServeChord(context.Background(), node3, node1, group, nil)
-	//	fmt.Println("Node3 joined the network")
-	//}()
-	//
-	//time.Sleep(1 * time.Second)
-	//
-	//fmt.Println(node1.FindPredecessor(context.Background(), node1))
-	//fmt.Println(node2.FindPredecessor(context.Background(), node2))
-	//fmt.Println(node3.FindPredecessor(context.Background(), node3))
-	//
-	//// Insert a key into the chord ring
-	//key := "testKey"
-	//value := "testValue"
-	//pair := &pb.Pair{Key: key, Value: value}
-	//_, err := node1.Put(context.Background(), pair)
-	//if err != nil {
-	//	fmt.Printf("Failed to insert key: %v\n", err)
-	//} else {
-	//	fmt.Printf("Key %s inserted successfully\n", key)
-	//}
-	//
-	//group.Wait()
-	//
-	//// Print out the state of the network
-	//fmt.Println("Network state:")
-	//fmt.Println("Node1:", node1)
-	//fmt.Println("Node2:", node2)
-	//fmt.Println("Node3:", node3)
-}
 
 func main() {
-	foundAddr, err := common.NetDiscover("9000", "QUEUE")
+	url := "https://www.newegg.com/p/3D5-002P-00044?Item=3D5-002P-00044&cm_sp=Homepage_SS-_-P2_3D5-002P-00044-_-07162024"
+	NeweggProductHandler(url)
+}
+
+func NeweggProductHandler(url string) {
+	product := common.Product{URL: url}
+
+	// Create a new collector
+	c := colly.NewCollector()
+
+	// Scrape the product name
+	c.OnHTML(".product-title", func(e *colly.HTMLElement) {
+		product.Name = e.Text
+	})
+
+	// Scrape the product price
+	c.OnHTML(".product-buy-box .price-current", func(e *colly.HTMLElement) {
+
+		if product.Price != 0 {
+			return
+		}
+
+		// Get the child strong element and its text
+		strong := e.DOM.Find("strong")
+		text := strong.Text()
+
+		temp, _ := strconv.ParseFloat(strings.TrimSpace(text), 32)
+		product.Price = float32(temp)
+	})
+
+	// Scrape the product description
+	c.OnHTML("#product-details .product-bullets", func(e *colly.HTMLElement) {
+		product.Description = e.Text
+	})
+
+	// Scrape the product rating
+	c.OnHTML(".product-rating", func(e *colly.HTMLElement) {
+		product.Rating = e.ChildAttr("i", "title")
+	})
+
+	// Start scraping the page
+	err := c.Visit(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to scrape Newegg product URL %s: %v", url, err)
 	}
 
-	fmt.Println("Found address: ", foundAddr)
+	// Print product
+	fmt.Printf("%v", product)
 }

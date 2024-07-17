@@ -181,6 +181,31 @@ func replicateNewFiles(ctx context.Context, n *node.ChordNode, predecessor *node
 //	}
 //}
 
+var previousStorageNodes = make(map[string][]string)
+
+func shouldReplicate(productName string, currentStorageNodes []string) bool {
+	previousNodes, exists := previousStorageNodes[productName]
+	if !exists {
+		// If it's the first time, always replicate
+		return true
+	}
+
+	if len(previousNodes) != len(currentStorageNodes) {
+		// Different number of nodes, should replicate
+		return true
+	}
+
+	// Check if all nodes are the same
+	for _, node := range currentStorageNodes {
+		if !contains(previousNodes, node) {
+			return true
+		}
+	}
+
+	// If all nodes are the same, no need to replicate
+	return false
+}
+
 func blackholeReplicate(ring *chord.Ring, host string, files []os.FileInfo) {
 	// Get all the storage nodes
 
@@ -199,18 +224,26 @@ func blackholeReplicate(ring *chord.Ring, host string, files []os.FileInfo) {
 
 			storageNodes := getAllPredecessors(ring, []byte(product.Name))
 
-			for _, address := range storageNodes {
+			if shouldReplicate(product.Name, storageNodes) {
 
-				fullEndpoint := "http://" + address + ":10001/replicate"
-				err = replicateProduct(fullEndpoint, product)
-				if err != nil {
-					fmt.Printf("Error while replicating %s to %s: %s\n", product.Name, fullEndpoint, err.Error())
-					continue
+				previousStorageNodes[product.Name] = storageNodes[:]
+
+				for _, address := range storageNodes {
+
+					fullEndpoint := "http://" + address + ":10001/replicate"
+					err = replicateProduct(fullEndpoint, product)
+					if err != nil {
+						fmt.Printf("Error while replicating %s to %s: %s\n", product.Name, fullEndpoint, err.Error())
+						continue
+					}
+
+					// Log replicated data
+					log.Printf("Replicated data with node %v, node address %v\n", address, host)
 				}
-
-				// Log replicated data
-				log.Printf("Replicated data with node %v, node address %v\n", address, host)
+			} else {
+				log.Printf("No need for replication on %s\n", product.Name)
 			}
+
 		}
 	}
 
